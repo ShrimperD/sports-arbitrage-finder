@@ -162,7 +162,13 @@
         function loadSavedBookmakers() {
             const saved = localStorage.getItem('selectedBookmakers');
             if (saved) {
-                selectedBookmakers = new Set(JSON.parse(saved));
+                try {
+                    const parsed = JSON.parse(saved);
+                    selectedBookmakers = new Set(parsed);
+                } catch (e) {
+                    console.error('Error loading saved bookmakers:', e);
+                    selectedBookmakers = new Set();
+                }
             }
         }
 
@@ -252,8 +258,10 @@
 
         async function fetchSports() {
             try {
+                console.log('Fetching sports...');
                 const response = await fetch(`${BASE_URL}?apiKey=${API_KEY}`);
                 const sports = await response.json();
+                console.log('Fetched sports:', sports.length);
                 allSports = sports;
                 const select = document.getElementById('sportSelect');
                 
@@ -270,28 +278,36 @@
                 updateRequestsRemaining(response.headers);
                 
                 // Initial load of all sports data
-                updateOpportunities();
+                await updateOpportunities();
             } catch (error) {
                 console.error('Error fetching sports:', error);
+                document.getElementById('opportunities').innerHTML = `
+                    <div class="text-center text-red-500 py-4">
+                        Error loading sports data. Please try again later.
+                    </div>
+                `;
             }
         }
 
         async function fetchOdds(sportKey) {
             try {
+                console.log(`Fetching odds for ${sportKey}...`);
                 const response = await fetch(
                     `${BASE_URL}/${sportKey}/odds?apiKey=${API_KEY}&regions=us&markets=h2h`
                 );
                 const events = await response.json();
+                console.log(`Fetched ${events.length} events for ${sportKey}`);
                 updateRequestsRemaining(response.headers);
                 return events;
             } catch (error) {
-                console.error('Error fetching odds:', error);
+                console.error(`Error fetching odds for ${sportKey}:`, error);
                 return [];
             }
         }
 
         async function fetchAllSportsOdds() {
             try {
+                console.log('Fetching odds for all sports...');
                 // Use Promise.all to fetch all sports concurrently
                 const promises = allSports.map(sport => 
                     fetchOdds(sport.key)
@@ -303,7 +319,9 @@
                 );
                 
                 const results = await Promise.all(promises);
-                return results.flat(); // Combine all events into a single array
+                const allEvents = results.flat(); // Combine all events into a single array
+                console.log(`Total events fetched: ${allEvents.length}`);
+                return allEvents;
             } catch (error) {
                 console.error('Error fetching all sports odds:', error);
                 return [];
@@ -340,16 +358,23 @@
         }
 
         function findArbitrageOpportunities(events) {
+            console.log('Finding arbitrage opportunities...');
             // First, update our bookmakers set with any new bookmakers
             events.forEach(event => {
                 event.bookmakers?.forEach(b => {
-                    bookmakers.add(b.title);
-                    // Add to selected bookmakers if it's new
-                    if (!selectedBookmakers.has(b.title)) {
-                        selectedBookmakers.add(b.title);
+                    if (b.title) {  // Only add if title exists
+                        bookmakers.add(b.title);
                     }
                 });
             });
+            
+            console.log('Available bookmakers:', Array.from(bookmakers));
+            
+            // If no bookmakers are selected, select all
+            if (selectedBookmakers.size === 0) {
+                bookmakers.forEach(b => selectedBookmakers.add(b));
+                saveBookmakerSelections();
+            }
             
             // Update the bookmaker filter buttons
             updateBookmakerFilters();
@@ -360,8 +385,11 @@
 
             events.forEach(event => {
                 // Filter bookmakers based on selection
-                const filteredBookmakers = event.bookmakers?.filter(b => selectedBookmakers.has(b.title)) || [];
-                if (!filteredBookmakers || filteredBookmakers.length < 2) return;
+                const filteredBookmakers = event.bookmakers?.filter(b => 
+                    b.title && selectedBookmakers.has(b.title)
+                ) || [];
+                
+                if (filteredBookmakers.length < 2) return;
 
                 const bestOdds = {
                     home: { odds: 0, bookmaker: '' },
@@ -382,6 +410,9 @@
                         bestOdds.away = { odds: awayOdds, bookmaker: bookmaker.title };
                     }
                 });
+
+                // Only proceed if we have valid odds for both teams
+                if (bestOdds.home.odds === 0 || bestOdds.away.odds === 0) return;
 
                 const impliedProbHome = 1 / bestOdds.home.odds;
                 const impliedProbAway = 1 / bestOdds.away.odds;
@@ -435,7 +466,7 @@
                 }
             });
 
-            // Sort opportunities by game time
+            console.log(`Found ${opportunities.length} arbitrage opportunities`);
             return opportunities.sort((a, b) => new Date(a.commenceTime) - new Date(b.commenceTime));
         }
 
@@ -540,21 +571,58 @@
         }
 
         async function updateOpportunities() {
-            const sportKey = document.getElementById('sportSelect').value;
-            let events = [];
+            try {
+                const sportKey = document.getElementById('sportSelect').value;
+                console.log(`Updating opportunities for ${sportKey}...`);
+                let events = [];
 
-            if (sportKey === 'all') {
-                events = await fetchAllSportsOdds();
-            } else {
-                events = await fetchOdds(sportKey);
+                if (sportKey === 'all') {
+                    events = await fetchAllSportsOdds();
+                } else {
+                    events = await fetchOdds(sportKey);
+                }
+
+                opportunities = findArbitrageOpportunities(events);
+                displayOpportunities();
+            } catch (error) {
+                console.error('Error updating opportunities:', error);
+                document.getElementById('opportunities').innerHTML = `
+                    <div class="text-center text-red-500 py-4">
+                        Error loading opportunities. Please try again later.
+                    </div>
+                `;
             }
-
-            opportunities = findArbitrageOpportunities(events);
-            displayOpportunities();
         }
 
-        // Update the initialization section
+        // Initialize
+        async function initialize() {
+            try {
+                console.log('Initializing application...');
+                // Load saved bookmakers first
+                loadSavedBookmakers();
+                console.log('Loaded saved bookmakers:', Array.from(selectedBookmakers));
+                
+                // Fetch sports and start auto-refresh
+                await fetchSports();
+                
+                // Start auto-refresh
+                startAutoRefresh();
+            } catch (error) {
+                console.error('Error during initialization:', error);
+                document.getElementById('opportunities').innerHTML = `
+                    <div class="text-center text-red-500 py-4">
+                        Error initializing application. Please refresh the page.
+                    </div>
+                `;
+            }
+        }
+
+        // Start the application
+        initialize();
+
+        // Update the startAutoRefresh function
         function startAutoRefresh() {
+            console.log('Starting auto-refresh...');
             // Clear any existing interval
             if (window.refreshInterval) {
                 clearInterval(window.refreshInterval);
@@ -564,12 +632,6 @@
             // Update immediately
             updateOpportunities();
         }
-
-        // Initialize
-        fetchSports().then(() => {
-            // Start auto-refresh immediately after fetching sports
-            startAutoRefresh();
-        });
 
         document.getElementById('sportSelect').addEventListener('change', () => {
             // Restart auto-refresh when sport changes
@@ -590,9 +652,6 @@
 
         // Add event listener for profit filter
         document.getElementById('minProfit').addEventListener('change', displayOpportunities);
-
-        // Load saved bookmakers on startup
-        loadSavedBookmakers();
 
         // Update styles for better mobile display
         const style = document.createElement('style');
