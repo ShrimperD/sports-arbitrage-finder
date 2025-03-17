@@ -453,7 +453,7 @@
             
             if (opportunities.length === 0) {
                 container.innerHTML = `
-                    <div class="text-center text-gray-500 py-8">
+                    <div class="text-center text-gray-500 py-4">
                         No arbitrage opportunities found for the selected sport
                     </div>
                 `;
@@ -464,35 +464,42 @@
             const sortBy = document.getElementById('sortSelect').value;
             const sortedOpportunities = sortOpportunities([...opportunities], sortBy);
 
-            container.innerHTML = sortedOpportunities.map(opp => `
-                <div class="border rounded p-4">
-                    <div class="flex justify-between items-start mb-4">
-                        <div>
-                            <h3 class="font-bold">${opp.homeTeam} vs ${opp.awayTeam}</h3>
-                            <p class="text-sm text-gray-600">${opp.sport}</p>
-                            <p class="text-sm text-gray-600">Game Time: ${formatGameTime(opp.commenceTime)}</p>
-                            <p class="text-sm text-gray-600">Expected Return: ${opp.return.toFixed(2)}%</p>
-                            <p class="text-sm text-gray-600">Profit: $${(opp.return * parseFloat(document.getElementById('maxStake').value) / 100).toFixed(2)}</p>
-                        </div>
-                        <div class="text-right">
-                            <p class="font-bold text-green-500">${opp.return.toFixed(2)}% Return</p>
-                        </div>
-                    </div>
-                    <div class="space-y-2">
-                        ${opp.bets.map(bet => `
-                            <div class="flex justify-between items-center border-t pt-2">
-                                <div>
-                                    <p class="font-medium">${bet.team}</p>
-                                    <p class="text-sm text-gray-600">${bet.bookmaker}</p>
+            // Create a grid container for the opportunities
+            container.innerHTML = `
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    ${sortedOpportunities.map(opp => `
+                        <div class="border rounded p-3 bg-white shadow-sm">
+                            <div class="flex justify-between items-start">
+                                <div class="flex-1">
+                                    <h3 class="font-bold text-sm">${opp.homeTeam} vs ${opp.awayTeam}</h3>
+                                    <div class="flex items-center gap-2 text-xs text-gray-600 mt-1">
+                                        <span>${opp.sport}</span>
+                                        <span>•</span>
+                                        <span>${formatGameTime(opp.commenceTime)}</span>
+                                    </div>
                                 </div>
-                                <div class="text-right">
-                                    <p class="font-medium">Stake: $${parseFloat(bet.stake).toFixed(2)}</p>
+                                <div class="text-right ml-4">
+                                    <p class="font-bold text-green-500 text-sm">${opp.return.toFixed(2)}%</p>
+                                    <p class="text-xs text-green-600">$${(opp.return * parseFloat(document.getElementById('maxStake').value) / 100).toFixed(2)}</p>
                                 </div>
                             </div>
-                        `).join('')}
-                    </div>
+                            <div class="mt-2 space-y-2">
+                                ${opp.bets.map(bet => `
+                                    <div class="flex justify-between items-center border-t pt-2">
+                                        <div>
+                                            <p class="text-sm font-medium">${bet.team}</p>
+                                            <p class="text-xs text-gray-600">${bet.bookmaker}</p>
+                                        </div>
+                                        <div class="text-right">
+                                            <p class="text-sm font-medium">$${parseFloat(bet.stake).toFixed(2)}</p>
+                                        </div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    `).join('')}
                 </div>
-            `).join('');
+            `;
         }
 
         async function updateOpportunities() {
