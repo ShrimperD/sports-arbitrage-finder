@@ -210,8 +210,10 @@
             } else {
                 selectedBookmakers.add(bookmaker);
             }
+            localStorage.setItem('selectedBookmakers', JSON.stringify(Array.from(selectedBookmakers)));
             updateBookmakerFilters();
-            displayOpportunities();
+            // Update opportunities immediately when bookmakers are toggled
+            updateOpportunities();
         }
 
         function selectAllBookmakers(select) {
@@ -220,8 +222,10 @@
             } else {
                 selectedBookmakers.clear();
             }
+            localStorage.setItem('selectedBookmakers', JSON.stringify(Array.from(selectedBookmakers)));
             updateBookmakerFilters();
-            displayOpportunities();
+            // Update opportunities immediately when bookmakers are toggled
+            updateOpportunities();
         }
 
         function updateSportCounts() {
@@ -609,14 +613,29 @@
             const sportKey = document.getElementById('sportSelect').value;
             let events = [];
 
-            if (sportKey === 'all') {
-                events = await fetchAllSportsOdds();
-            } else {
-                events = await fetchOdds(sportKey);
-            }
+            try {
+                if (sportKey === 'all') {
+                    events = await fetchAllSportsOdds();
+                } else {
+                    events = await fetchOdds(sportKey);
+                }
 
-            opportunities = findArbitrageOpportunities(events);
-            displayOpportunities();
+                // Filter events based on selected bookmakers
+                events = events.filter(event => {
+                    if (!event.bookmakers) return false;
+                    return event.bookmakers.some(b => selectedBookmakers.has(b.title));
+                });
+
+                opportunities = findArbitrageOpportunities(events);
+                displayOpportunities();
+            } catch (error) {
+                console.error('Error updating opportunities:', error);
+                document.getElementById('opportunities').innerHTML = `
+                    <div class="text-center text-red-500 py-4">
+                        Error updating opportunities: ${error.message}
+                    </div>
+                `;
+            }
         }
 
         // Update the initialization section
@@ -640,6 +659,10 @@
             // Then fetch sports and start auto-refresh
             fetchSports().then(() => {
                 console.log('Sports fetched, starting auto-refresh...');
+                // Set initial sport selection to 'all'
+                document.getElementById('sportSelect').value = 'all';
+                // Update opportunities immediately
+                updateOpportunities();
                 startAutoRefresh();
             }).catch(error => {
                 console.error('Error during initialization:', error);
