@@ -21,13 +21,38 @@
             background-color: #f3f4f6;
             padding: 0.5rem;
         }
+        /* Mobile-friendly styles */
+        @media (max-width: 768px) {
+            .sticky-header {
+                position: relative;
+                padding: 0.25rem;
+            }
+            .card {
+                padding: 0.75rem;
+            }
+            .grid {
+                gap: 0.5rem;
+            }
+            .text-2xl {
+                font-size: 1.25rem;
+            }
+            .settings-grid {
+                grid-template-columns: 1fr;
+            }
+            .opportunity-card {
+                padding: 0.75rem;
+            }
+            .opportunity-card .grid {
+                grid-template-columns: 1fr;
+            }
+        }
     </style>
 </head>
 <body class="bg-gray-100">
-    <div class="max-w-7xl mx-auto">
+    <div class="max-w-7xl mx-auto px-4">
         <div class="sticky-header">
-            <div class="flex justify-between items-center mb-4">
-                <h1 class="text-2xl font-bold">Sports Arbitrage Finder</h1>
+            <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-4">
+                <h1 class="text-2xl font-bold mb-2 md:mb-0">Sports Arbitrage Finder</h1>
                 <div class="text-xs text-gray-600">
                     <span>API: </span>
                     <span>Requests: <span id="requestsRemaining">-</span> | </span>
@@ -35,9 +60,46 @@
                 </div>
             </div>
             
-            <div class="grid grid-cols-12 gap-4">
+            <div class="grid grid-cols-1 md:grid-cols-12 gap-4">
+                <!-- Bankroll Management - 3 columns -->
+                <div class="col-span-1 md:col-span-3">
+                    <div class="card h-full">
+                        <h2 class="text-sm font-bold mb-2">Bankroll Management</h2>
+                        <div class="space-y-2">
+                            <div>
+                                <label class="label">Initial Bankroll ($)</label>
+                                <input type="number" class="input w-full" id="initialBankroll" value="1000">
+                            </div>
+                            <div>
+                                <label class="label">Current Bankroll ($)</label>
+                                <input type="number" class="input w-full" id="currentBankroll" value="1000">
+                            </div>
+                            <div>
+                                <label class="label">Risk per Trade (%)</label>
+                                <input type="number" class="input w-full" id="riskPerTrade" value="1" min="0.1" max="5" step="0.1">
+                            </div>
+                            <div id="bankrollStats" class="mt-3 p-2 bg-gray-50 rounded">
+                                <div class="grid grid-cols-2 gap-2 text-xs">
+                                    <div>
+                                        <p class="text-gray-600">Total Profit/Loss:</p>
+                                        <p class="font-medium" id="totalProfitLoss">$0.00</p>
+                                    </div>
+                                    <div class="text-right">
+                                        <p class="text-gray-600">ROI:</p>
+                                        <p class="font-medium" id="roiPercentage">0.00%</p>
+                                    </div>
+                                    <div class="col-span-2 text-center">
+                                        <p class="text-gray-600">Max Stake per Trade:</p>
+                                        <p class="font-medium text-blue-600" id="maxStakePerTrade">$0.00</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Arbitrage Calculator - 3 columns -->
-                <div class="col-span-3">
+                <div class="col-span-1 md:col-span-3">
                     <div class="card h-full">
                         <h2 class="text-sm font-bold mb-2">Arbitrage Calculator</h2>
                         <div class="space-y-2">
@@ -73,29 +135,29 @@
                     </div>
                 </div>
 
-                <!-- Settings - 9 columns -->
-                <div class="col-span-9">
+                <!-- Settings - 6 columns -->
+                <div class="col-span-1 md:col-span-6">
                     <div class="card">
-                        <div class="grid grid-cols-6 gap-3">
-                            <div>
+                        <div class="grid grid-cols-2 md:grid-cols-6 gap-3">
+                            <div class="col-span-1 md:col-span-1">
                                 <label class="label">Sport</label>
                                 <select class="input w-full text-sm" id="sportSelect">
                                     <option value="all">All Sports</option>
                                 </select>
                             </div>
-                            <div>
+                            <div class="col-span-1 md:col-span-1">
                                 <label class="label">Min Return (%)</label>
                                 <input type="number" class="input w-full" id="minReturn" value="0.5" min="0" step="0.1">
                             </div>
-                            <div>
+                            <div class="col-span-1 md:col-span-1">
                                 <label class="label">Max Stake ($)</label>
                                 <input type="number" class="input w-full" id="maxStake" value="100" min="100" step="100">
                             </div>
-                            <div>
+                            <div class="col-span-1 md:col-span-1">
                                 <label class="label">Min Profit ($)</label>
                                 <input type="number" class="input w-full" id="minProfit" value="20" min="0" step="1">
                             </div>
-                            <div>
+                            <div class="col-span-1 md:col-span-1">
                                 <label class="label">Sort By</label>
                                 <select class="input w-full text-sm" id="sortSelect">
                                     <option value="time">Game Time</option>
@@ -103,7 +165,7 @@
                                     <option value="profit">Profit $ (High-Low)</option>
                                 </select>
                             </div>
-                            <div class="flex items-center">
+                            <div class="col-span-1 md:col-span-1 flex items-center">
                                 <label class="inline-flex items-center">
                                     <input type="checkbox" id="autoRefresh" class="form-checkbox h-4 w-4">
                                     <span class="ml-1 text-xs">Auto Refresh</span>
@@ -538,17 +600,17 @@
                         const odds1 = formatOdds(opp.bets[0].odds);
                         const odds2 = formatOdds(opp.bets[1].odds);
                         return `
-                            <div class="border rounded p-3 bg-white shadow-sm">
-                                <div class="flex justify-between items-start">
+                            <div class="opportunity-card border rounded p-3 bg-white shadow-sm">
+                                <div class="flex flex-col md:flex-row justify-between items-start md:items-center">
                                     <div class="flex-1">
                                         <h3 class="font-bold text-sm">${opp.homeTeam} vs ${opp.awayTeam}</h3>
-                                        <div class="flex items-center gap-2 text-xs text-gray-600 mt-1">
+                                        <div class="flex flex-wrap items-center gap-2 text-xs text-gray-600 mt-1">
                                             <span>${opp.sport}</span>
                                             <span>•</span>
                                             <span>${formatGameTime(opp.commenceTime)}</span>
                                         </div>
                                     </div>
-                                    <div class="text-right ml-4">
+                                    <div class="text-right mt-2 md:mt-0">
                                         <p class="font-bold text-green-500 text-sm">${opp.return.toFixed(2)}%</p>
                                         <p class="text-xs text-green-600">$${(opp.return * parseFloat(document.getElementById('maxStake').value) / 100).toFixed(2)}</p>
                                     </div>
@@ -557,12 +619,12 @@
                                     ${opp.bets.map((bet, index) => {
                                         const odds = index === 0 ? odds1 : odds2;
                                         return `
-                                            <div class="flex justify-between items-center border-t pt-2">
+                                            <div class="flex flex-col md:flex-row justify-between items-start md:items-center border-t pt-2">
                                                 <div>
                                                     <p class="text-sm font-medium">${bet.team}</p>
                                                     <p class="text-xs text-gray-600">${bet.bookmaker}</p>
                                                 </div>
-                                                <div class="text-right">
+                                                <div class="text-right mt-1 md:mt-0">
                                                     <p class="text-sm font-medium">$${parseFloat(bet.stake).toFixed(2)}</p>
                                                     <div class="flex items-center gap-2 text-xs text-gray-500">
                                                         <span>${odds.decimal}</span>
@@ -654,6 +716,35 @@
         document.getElementById('minProfit').addEventListener('change', () => {
             console.log('Min profit changed, updating display...');
             displayOpportunities();
+        });
+
+        // Add bankroll management functions
+        function updateBankrollStats() {
+            const initialBankroll = parseFloat(document.getElementById('initialBankroll').value) || 0;
+            const currentBankroll = parseFloat(document.getElementById('currentBankroll').value) || 0;
+            const riskPerTrade = parseFloat(document.getElementById('riskPerTrade').value) || 1;
+
+            const totalProfitLoss = currentBankroll - initialBankroll;
+            const roiPercentage = initialBankroll > 0 ? (totalProfitLoss / initialBankroll) * 100 : 0;
+            const maxStakePerTrade = currentBankroll * (riskPerTrade / 100);
+
+            document.getElementById('totalProfitLoss').textContent = `$${totalProfitLoss.toFixed(2)}`;
+            document.getElementById('roiPercentage').textContent = `${roiPercentage.toFixed(2)}%`;
+            document.getElementById('maxStakePerTrade').textContent = `$${maxStakePerTrade.toFixed(2)}`;
+
+            // Update max stake input with the calculated max stake per trade
+            document.getElementById('maxStake').value = Math.round(maxStakePerTrade);
+        }
+
+        // Add event listeners for bankroll inputs
+        ['initialBankroll', 'currentBankroll', 'riskPerTrade'].forEach(id => {
+            document.getElementById(id).addEventListener('input', updateBankrollStats);
+        });
+
+        // Initialize bankroll stats
+        document.addEventListener('DOMContentLoaded', () => {
+            updateBankrollStats();
+            // ... rest of your existing initialization code ...
         });
 
         // Update styles for better mobile display
