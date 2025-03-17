@@ -69,16 +69,16 @@
                             <div class="grid grid-cols-2 gap-1">
                                 <div>
                                     <label class="label text-xs">Original Odds</label>
-                                    <input type="number" step="any" class="input w-full text-sm" id="originalOdds" placeholder="+150">
+                                    <input type="text" class="input w-full text-sm" id="originalOdds" placeholder="+150">
                                 </div>
                                 <div>
                                     <label class="label text-xs">Original Bet</label>
-                                    <input type="number" step="any" class="input w-full text-sm" id="originalBetAmount" value="100">
+                                    <input type="text" class="input w-full text-sm" id="originalBetAmount" value="100">
                                 </div>
                             </div>
                             <div>
                                 <label class="label text-xs">Hedge Odds</label>
-                                <input type="number" step="any" class="input w-full text-sm" id="hedgeOdds" placeholder="-130">
+                                <input type="text" class="input w-full text-sm" id="hedgeOdds" placeholder="-130">
                             </div>
                             <div id="calculatorResult" class="mt-1.5 p-1.5 bg-gray-50 rounded text-xs">
                                 <div class="grid grid-cols-2 gap-1">
@@ -762,11 +762,11 @@
         document.head.appendChild(style);
 
         function calculateArbitrage() {
-            const originalOdds = parseFloat(document.getElementById('originalOdds').value);
-            const originalBetAmount = parseFloat(document.getElementById('originalBetAmount').value);
-            const hedgeOdds = parseFloat(document.getElementById('hedgeOdds').value);
+            const originalOdds = parseFloat(document.getElementById('originalOdds').value.replace(/[^-\d.]/g, ''));
+            const originalBetAmount = parseFloat(document.getElementById('originalBetAmount').value.replace(/[^-\d.]/g, ''));
+            const hedgeOdds = parseFloat(document.getElementById('hedgeOdds').value.replace(/[^-\d.]/g, ''));
 
-            if (!originalOdds || !originalBetAmount || !hedgeOdds) {
+            if (isNaN(originalOdds) || isNaN(originalBetAmount) || isNaN(hedgeOdds)) {
                 resetCalculator();
                 return;
             }
@@ -798,8 +798,9 @@
         // Add event listeners for calculator inputs
         ['originalOdds', 'originalBetAmount', 'hedgeOdds'].forEach(id => {
             const input = document.getElementById(id);
-            input.addEventListener('input', calculateArbitrage);
+            input.addEventListener('keyup', calculateArbitrage);
             input.addEventListener('change', calculateArbitrage);
+            input.addEventListener('paste', calculateArbitrage);
         });
     </script>
 </body>
