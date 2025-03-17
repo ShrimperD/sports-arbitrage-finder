@@ -65,20 +65,22 @@
                 <div class="col-span-1 md:col-span-3">
                     <div class="card h-full">
                         <h2 class="text-sm font-bold mb-2">Hedge Calculator</h2>
-                        <div class="space-y-2">
-                            <div>
-                                <label class="label">Original Odds</label>
-                                <input type="number" class="input w-full" id="originalOdds" placeholder="+150">
+                        <div class="space-y-1.5">
+                            <div class="grid grid-cols-2 gap-1">
+                                <div>
+                                    <label class="label text-xs">Original Odds</label>
+                                    <input type="number" class="input w-full text-sm" id="originalOdds" placeholder="+150">
+                                </div>
+                                <div>
+                                    <label class="label text-xs">Original Bet</label>
+                                    <input type="number" class="input w-full text-sm" id="originalBetAmount" value="100">
+                                </div>
                             </div>
                             <div>
-                                <label class="label">Original Bet Amount</label>
-                                <input type="number" class="input w-full" id="originalBetAmount" value="100">
+                                <label class="label text-xs">Hedge Odds</label>
+                                <input type="number" class="input w-full text-sm" id="hedgeOdds" placeholder="-130">
                             </div>
-                            <div>
-                                <label class="label">Hedge Odds</label>
-                                <input type="number" class="input w-full" id="hedgeOdds" placeholder="-130">
-                            </div>
-                            <div id="calculatorResult" class="mt-2 p-2 bg-gray-50 rounded text-xs">
+                            <div id="calculatorResult" class="mt-1.5 p-1.5 bg-gray-50 rounded text-xs">
                                 <div class="grid grid-cols-2 gap-1">
                                     <div>
                                         <p class="text-gray-600">Hedge Amount:</p>
@@ -94,7 +96,7 @@
                                     </div>
                                 </div>
                             </div>
-                            <button onclick="resetCalculator()" class="button w-full mt-2 text-xs">Reset</button>
+                            <button onclick="resetCalculator()" class="button w-full mt-1 text-xs py-1">Reset</button>
                         </div>
                     </div>
                 </div>
