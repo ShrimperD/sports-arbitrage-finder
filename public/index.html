@@ -762,12 +762,26 @@
         document.head.appendChild(style);
 
         function calculateArbitrage() {
-            const originalOdds = parseFloat(document.getElementById('originalOdds').value.replace(/[^-\d.]/g, ''));
-            const originalBetAmount = parseFloat(document.getElementById('originalBetAmount').value.replace(/[^-\d.]/g, ''));
-            const hedgeOdds = parseFloat(document.getElementById('hedgeOdds').value.replace(/[^-\d.]/g, ''));
+            const originalOddsInput = document.getElementById('originalOdds');
+            const originalBetInput = document.getElementById('originalBetAmount');
+            const hedgeOddsInput = document.getElementById('hedgeOdds');
+
+            // Get raw input values without immediate parsing
+            const originalOddsStr = originalOddsInput.value;
+            const originalBetStr = originalBetInput.value;
+            const hedgeOddsStr = hedgeOddsInput.value;
+
+            // Only calculate if all fields have values
+            if (!originalOddsStr || !originalBetStr || !hedgeOddsStr) {
+                return;
+            }
+
+            // Parse values, allowing for negative signs and decimal points
+            const originalOdds = parseFloat(originalOddsStr.replace(/[^-\d.]/g, ''));
+            const originalBetAmount = parseFloat(originalBetStr.replace(/[^-\d.]/g, ''));
+            const hedgeOdds = parseFloat(hedgeOddsStr.replace(/[^-\d.]/g, ''));
 
             if (isNaN(originalOdds) || isNaN(originalBetAmount) || isNaN(hedgeOdds)) {
-                resetCalculator();
                 return;
             }
 
@@ -795,12 +809,14 @@
             document.getElementById('totalProfit').textContent = '$0.00';
         }
 
-        // Add event listeners for calculator inputs
+        // Add event listeners for calculator inputs with debounce
+        let timeoutId;
         ['originalOdds', 'originalBetAmount', 'hedgeOdds'].forEach(id => {
             const input = document.getElementById(id);
-            input.addEventListener('keyup', calculateArbitrage);
-            input.addEventListener('change', calculateArbitrage);
-            input.addEventListener('paste', calculateArbitrage);
+            input.addEventListener('input', () => {
+                clearTimeout(timeoutId);
+                timeoutId = setTimeout(calculateArbitrage, 300);
+            });
         });
     </script>
 </body>
