@@ -39,7 +39,7 @@
                 <!-- Arbitrage Calculator - 3 columns -->
                 <div class="col-span-3">
                     <div class="card h-full">
-                        <h2 class="text-sm font-bold mb-2">Quick Calculator</h2>
+                        <h2 class="text-sm font-bold mb-2">Arbitrage Calculator</h2>
                         <div class="space-y-2">
                             <div>
                                 <label class="label">Odds 1 (American)</label>
@@ -50,11 +50,24 @@
                                 <input type="number" class="input w-full" id="odds2" placeholder="-130">
                             </div>
                             <div>
-                                <label class="label">Stake ($)</label>
+                                <label class="label">Total Stake ($)</label>
                                 <input type="number" class="input w-full" id="calcStake" value="100">
                             </div>
-                            <div id="calculatorResult" class="text-xs mt-2">
-                                <p class="text-center text-gray-500">Enter odds to calculate</p>
+                            <div id="calculatorResult" class="mt-3 p-2 bg-gray-50 rounded">
+                                <div class="grid grid-cols-2 gap-2 text-xs">
+                                    <div>
+                                        <p class="text-gray-600">Total Stake:</p>
+                                        <p class="font-medium" id="totalStakeDisplay">$0.00</p>
+                                    </div>
+                                    <div class="text-right">
+                                        <p class="text-gray-600">Total Payout:</p>
+                                        <p class="font-medium" id="totalPayoutDisplay">$0.00</p>
+                                    </div>
+                                    <div class="col-span-2 text-center">
+                                        <p class="text-gray-600">Profit:</p>
+                                        <p class="font-medium text-green-600" id="profitDisplay">$0.00 (0.00%)</p>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -123,6 +136,16 @@
                 </div>
             </div>
         </div>
+
+        <!-- Saved Bets Section -->
+        <div class="card mt-4">
+            <h2 class="text-lg font-bold mb-4">Saved Bets</h2>
+            <div id="savedBets" class="space-y-3">
+                <div class="text-center text-gray-500 py-4">
+                    No saved bets yet
+                </div>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -133,6 +156,9 @@
         let sportOpportunities = new Map();
         let bookmakers = new Set();
         let selectedBookmakers = new Set();
+
+        // Add savedBets array to store saved opportunities
+        let savedBets = JSON.parse(localStorage.getItem('savedBets') || '[]');
 
         // Load saved bookmaker selections from localStorage
         function loadSavedBookmakers() {
@@ -531,6 +557,11 @@
                     ${sortedOpportunities.map(opp => {
                         const odds1 = formatOdds(opp.bets[0].odds);
                         const odds2 = formatOdds(opp.bets[1].odds);
+                        const isSaved = savedBets.some(bet => 
+                            bet.homeTeam === opp.homeTeam && 
+                            bet.awayTeam === opp.awayTeam &&
+                            bet.commenceTime === opp.commenceTime
+                        );
                         return `
                             <div class="border rounded p-3 bg-white shadow-sm">
                                 <div class="flex justify-between items-start">
@@ -566,6 +597,12 @@
                                             </div>
                                         `;
                                     }).join('')}
+                                </div>
+                                <div class="mt-2 flex justify-end">
+                                    <button onclick="${isSaved ? `removeSavedBet(${JSON.stringify(opp)})` : `saveBet(${JSON.stringify(opp)})`}" 
+                                            class="text-xs ${isSaved ? 'text-red-600 hover:text-red-800' : 'text-blue-600 hover:text-blue-800'}">
+                                        ${isSaved ? 'Remove' : 'Save Bet'}
+                                    </button>
                                 </div>
                             </div>
                         `;
@@ -605,6 +642,9 @@
             console.log('DOM loaded, initializing...');
             // Load saved bookmakers first
             loadSavedBookmakers();
+            
+            // Display saved bets
+            displaySavedBets();
             
             // Then fetch sports and start auto-refresh
             fetchSports().then(() => {
@@ -672,9 +712,9 @@
             const totalStake = parseFloat(document.getElementById('calcStake').value);
 
             if (!odds1 || !odds2 || !totalStake) {
-                document.getElementById('calculatorResult').innerHTML = `
-                    <p class="text-center text-red-500 text-xs">Please enter valid odds</p>
-                `;
+                document.getElementById('totalStakeDisplay').textContent = '$0.00';
+                document.getElementById('totalPayoutDisplay').textContent = '$0.00';
+                document.getElementById('profitDisplay').textContent = '$0.00 (0.00%)';
                 return;
             }
 
@@ -688,9 +728,9 @@
             
             if (totalProb >= 1) {
                 const margin = ((totalProb - 1) * 100).toFixed(2);
-                document.getElementById('calculatorResult').innerHTML = `
-                    <p class="text-center text-red-500 text-xs">No arbitrage (${margin}% margin)</p>
-                `;
+                document.getElementById('totalStakeDisplay').textContent = '$0.00';
+                document.getElementById('totalPayoutDisplay').textContent = '$0.00';
+                document.getElementById('profitDisplay').textContent = `No arbitrage (${margin}% margin)`;
                 return;
             }
 
@@ -700,26 +740,128 @@
             const returns = (stake1 * decimal1).toFixed(2);
             const profitAmount = (returns - totalStake).toFixed(2);
 
-            document.getElementById('calculatorResult').innerHTML = `
-                <div class="space-y-1">
-                    <p class="text-green-600 font-bold text-xs text-center">Found: ${profit.toFixed(2)}% Return</p>
-                    <div class="grid grid-cols-2 gap-2 text-xs">
-                        <div>
-                            <p>Bet 1: $${stake1}</p>
-                            <p>Bet 2: $${stake2}</p>
-                        </div>
-                        <div class="text-right">
-                            <p class="text-green-600">Profit: $${profitAmount}</p>
-                        </div>
-                    </div>
-                </div>
-            `;
+            document.getElementById('totalStakeDisplay').textContent = `$${totalStake.toFixed(2)}`;
+            document.getElementById('totalPayoutDisplay').textContent = `$${returns}`;
+            document.getElementById('profitDisplay').textContent = `$${profitAmount} (${profit.toFixed(2)}%)`;
         }
 
         // Add event listeners for calculator inputs
         ['odds1', 'odds2', 'calcStake'].forEach(id => {
             document.getElementById(id).addEventListener('input', calculateArbitrage);
         });
+
+        // Function to save a bet
+        function saveBet(opportunity) {
+            if (!savedBets.some(bet => 
+                bet.homeTeam === opportunity.homeTeam && 
+                bet.awayTeam === opportunity.awayTeam &&
+                bet.commenceTime === opportunity.commenceTime
+            )) {
+                savedBets.push({
+                    ...opportunity,
+                    savedAt: new Date().toISOString(),
+                    actualOdds: opportunity.bets.map(bet => ({...bet})), // Store actual odds
+                    actualStakes: opportunity.bets.map(bet => ({...bet})) // Store actual stakes
+                });
+                localStorage.setItem('savedBets', JSON.stringify(savedBets));
+                displaySavedBets();
+            }
+        }
+
+        // Function to remove a saved bet
+        function removeSavedBet(opportunity) {
+            savedBets = savedBets.filter(bet => 
+                !(bet.homeTeam === opportunity.homeTeam && 
+                  bet.awayTeam === opportunity.awayTeam &&
+                  bet.commenceTime === opportunity.commenceTime)
+            );
+            localStorage.setItem('savedBets', JSON.stringify(savedBets));
+            displaySavedBets();
+        }
+
+        // Function to update actual odds/stakes
+        function updateActualBet(index, betIndex, field, value) {
+            savedBets[index].actualOdds[betIndex][field] = parseFloat(value);
+            savedBets[index].actualStakes[betIndex][field] = parseFloat(value);
+            localStorage.setItem('savedBets', JSON.stringify(savedBets));
+            displaySavedBets();
+        }
+
+        // Function to display saved bets
+        function displaySavedBets() {
+            const container = document.getElementById('savedBets');
+            
+            if (savedBets.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center text-gray-500 py-4">
+                        No saved bets yet
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = `
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    ${savedBets.map((opp, index) => {
+                        const odds1 = formatOdds(opp.actualOdds[0].odds);
+                        const odds2 = formatOdds(opp.actualOdds[1].odds);
+                        return `
+                            <div class="border rounded p-3 bg-white shadow-sm">
+                                <div class="flex justify-between items-start">
+                                    <div class="flex-1">
+                                        <h3 class="font-bold text-sm">${opp.homeTeam} vs ${opp.awayTeam}</h3>
+                                        <div class="flex items-center gap-2 text-xs text-gray-600 mt-1">
+                                            <span>${opp.sport}</span>
+                                            <span>•</span>
+                                            <span>${formatGameTime(opp.commenceTime)}</span>
+                                        </div>
+                                    </div>
+                                    <div class="text-right ml-4">
+                                        <p class="font-bold text-green-500 text-sm">${opp.return.toFixed(2)}%</p>
+                                        <p class="text-xs text-green-600">$${(opp.return * parseFloat(document.getElementById('maxStake').value) / 100).toFixed(2)}</p>
+                                    </div>
+                                </div>
+                                <div class="mt-2 space-y-2">
+                                    ${opp.actualOdds.map((bet, betIndex) => {
+                                        const odds = betIndex === 0 ? odds1 : odds2;
+                                        return `
+                                            <div class="flex justify-between items-center border-t pt-2">
+                                                <div>
+                                                    <p class="text-sm font-medium">${bet.team}</p>
+                                                    <p class="text-xs text-gray-600">${bet.bookmaker}</p>
+                                                </div>
+                                                <div class="text-right">
+                                                    <div class="flex items-center gap-2">
+                                                        <input type="number" 
+                                                               class="w-20 text-sm border rounded px-1 py-0.5" 
+                                                               value="${bet.stake}"
+                                                               onchange="updateActualBet(${index}, ${betIndex}, 'stake', this.value)">
+                                                        <span class="text-sm">$</span>
+                                                    </div>
+                                                    <div class="flex items-center gap-2 text-xs text-gray-500">
+                                                        <input type="number" 
+                                                               class="w-16 text-sm border rounded px-1 py-0.5" 
+                                                               value="${bet.odds}"
+                                                               onchange="updateActualBet(${index}, ${betIndex}, 'odds', this.value)">
+                                                        <span>${odds.american}</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        `;
+                                    }).join('')}
+                                </div>
+                                <div class="mt-2 flex justify-end">
+                                    <button onclick="removeSavedBet(${JSON.stringify(opp)})" 
+                                            class="text-xs text-red-600 hover:text-red-800">
+                                        Remove
+                                    </button>
+                                </div>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+            `;
+        }
     </script>
 </body>
 </html> 
