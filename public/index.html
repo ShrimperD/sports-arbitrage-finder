@@ -599,7 +599,7 @@
                                     }).join('')}
                                 </div>
                                 <div class="mt-2 flex justify-end">
-                                    <button onclick="${isSaved ? `removeSavedBet(${JSON.stringify(opp)})` : `saveBet(${JSON.stringify(opp)})`}" 
+                                    <button onclick="${isSaved ? `removeSavedBet('${opp.homeTeam}', '${opp.awayTeam}', '${opp.commenceTime}')` : `saveBet('${opp.homeTeam}', '${opp.awayTeam}', '${opp.sport}', '${opp.return}', '${opp.commenceTime}', ${JSON.stringify(opp.bets)})`}" 
                                             class="text-xs ${isSaved ? 'text-red-600 hover:text-red-800' : 'text-blue-600 hover:text-blue-800'}">
                                         ${isSaved ? 'Remove' : 'Save Bet'}
                                     </button>
@@ -751,40 +751,39 @@
         });
 
         // Function to save a bet
-        function saveBet(opportunity) {
+        function saveBet(homeTeam, awayTeam, sport, returnPercentage, commenceTime, bets) {
+            const opportunity = {
+                homeTeam,
+                awayTeam,
+                sport,
+                return: returnPercentage,
+                commenceTime,
+                bets: bets.map(bet => ({...bet})),
+                savedAt: new Date().toISOString()
+            };
+
             if (!savedBets.some(bet => 
-                bet.homeTeam === opportunity.homeTeam && 
-                bet.awayTeam === opportunity.awayTeam &&
-                bet.commenceTime === opportunity.commenceTime
+                bet.homeTeam === homeTeam && 
+                bet.awayTeam === awayTeam &&
+                bet.commenceTime === commenceTime
             )) {
-                savedBets.push({
-                    ...opportunity,
-                    savedAt: new Date().toISOString(),
-                    actualOdds: opportunity.bets.map(bet => ({...bet})), // Store actual odds
-                    actualStakes: opportunity.bets.map(bet => ({...bet})) // Store actual stakes
-                });
+                savedBets.push(opportunity);
                 localStorage.setItem('savedBets', JSON.stringify(savedBets));
                 displaySavedBets();
+                displayOpportunities(); // Refresh the opportunities display
             }
         }
 
         // Function to remove a saved bet
-        function removeSavedBet(opportunity) {
+        function removeSavedBet(homeTeam, awayTeam, commenceTime) {
             savedBets = savedBets.filter(bet => 
-                !(bet.homeTeam === opportunity.homeTeam && 
-                  bet.awayTeam === opportunity.awayTeam &&
-                  bet.commenceTime === opportunity.commenceTime)
+                !(bet.homeTeam === homeTeam && 
+                  bet.awayTeam === awayTeam &&
+                  bet.commenceTime === commenceTime)
             );
             localStorage.setItem('savedBets', JSON.stringify(savedBets));
             displaySavedBets();
-        }
-
-        // Function to update actual odds/stakes
-        function updateActualBet(index, betIndex, field, value) {
-            savedBets[index].actualOdds[betIndex][field] = parseFloat(value);
-            savedBets[index].actualStakes[betIndex][field] = parseFloat(value);
-            localStorage.setItem('savedBets', JSON.stringify(savedBets));
-            displaySavedBets();
+            displayOpportunities(); // Refresh the opportunities display
         }
 
         // Function to display saved bets
