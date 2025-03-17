@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: sports-arbitrage-finder
+    env: static
+    buildCommand: echo "No build required"
+    staticPublishPath: ./public
+    headers:
+      - path: /*
+        name: Cache-Control
+        value: no-cache
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html 

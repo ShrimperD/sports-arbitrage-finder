@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Sports Arbitrage Finder</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .card { @apply bg-white rounded-lg shadow p-6 mb-4; }
+        .button { @apply bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600; }
+        .input { @apply border rounded px-3 py-2 w-full; }
+        .label { @apply block text-sm font-medium text-gray-700 mb-1; }
+    </style>
+</head>
+<body class="bg-gray-100 p-8">
+    <div class="max-w-7xl mx-auto">
+        <h1 class="text-3xl font-bold mb-8">Sports Arbitrage Finder</h1>
+        
+        <div class="grid grid-cols-4 gap-4 mb-8">
+            <div class="card">
+                <h3 class="font-bold mb-2">Total Opportunities</h3>
+                <p class="text-2xl" id="totalOpps">0</p>
+            </div>
+            <div class="card">
+                <h3 class="font-bold mb-2">Best Return</h3>
+                <p class="text-2xl text-green-500" id="bestReturn">0%</p>
+            </div>
+            <div class="card">
+                <h3 class="font-bold mb-2">Average Return</h3>
+                <p class="text-2xl text-green-500" id="avgReturn">0%</p>
+            </div>
+            <div class="card">
+                <h3 class="font-bold mb-2">Total Potential</h3>
+                <p class="text-2xl text-green-500" id="totalPotential">$0</p>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-[300px_1fr] gap-8">
+            <div>
+                <div class="card mb-4">
+                    <h2 class="text-xl font-bold mb-4">Settings</h2>
+                    <div class="space-y-4">
+                        <div>
+                            <label class="label">Sport</label>
+                            <select class="input" id="sportSelect">
+                                <option value="all">All Sports</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="label">Bookmakers</label>
+                            <div id="bookmakerFilters" class="space-y-2">
+                                <!-- Bookmaker buttons will be added here -->
+                            </div>
+                            <div class="mt-2 space-x-2">
+                                <button onclick="selectAllBookmakers(true)" class="text-sm text-blue-600 hover:underline">Select All</button>
+                                <button onclick="selectAllBookmakers(false)" class="text-sm text-blue-600 hover:underline">Deselect All</button>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="label">Minimum Return (%)</label>
+                            <input type="number" class="input" id="minReturn" value="0.5" min="0" step="0.1">
+                        </div>
+                        <div>
+                            <label class="label">Maximum Stake ($)</label>
+                            <input type="number" class="input" id="maxStake" value="100" min="100" step="100">
+                        </div>
+                        <div>
+                            <label class="label">Minimum Profit ($)</label>
+                            <input type="number" class="input" id="minProfit" value="0" min="0" step="1">
+                        </div>
+                        <div>
+                            <label class="label">Sort By</label>
+                            <select class="input" id="sortSelect">
+                                <option value="time">Game Time</option>
+                                <option value="return">Arbitrage Return % (High to Low)</option>
+                                <option value="profit">Profit $ (High to Low)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="label">Auto Refresh</label>
+                            <input type="checkbox" id="autoRefresh"> Every minute
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h2 class="text-xl font-bold mb-4">API Status</h2>
+                    <div class="space-y-2">
+                        <p>Requests remaining: <span id="requestsRemaining">-</span></p>
+                        <p>Last updated: <span id="lastUpdated">Never</span></p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2 class="text-xl font-bold mb-4">Live Opportunities</h2>
+                <div id="opportunities" class="space-y-4">
+                    <div class="text-center text-gray-500 py-8">
+                        Select a sport to view opportunities
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_KEY = 'f1e5ca6d70e837026e976e7f5a94f058';
+        const BASE_URL = 'https://api.the-odds-api.com/v4/sports';
+        let opportunities = [];
+        let allSports = [];
+        let sportOpportunities = new Map();
+        let bookmakers = new Set();
+        let selectedBookmakers = new Set();
+
+        // Load saved bookmaker selections from localStorage
+        function loadSavedBookmakers() {
+            const saved = localStorage.getItem('selectedBookmakers');
+            if (saved) {
+                selectedBookmakers = new Set(JSON.parse(saved));
+            }
+        }
+
+        // Save bookmaker selections to localStorage
+        function saveBookmakerSelections() {
+            localStorage.setItem('selectedBookmakers', JSON.stringify(Array.from(selectedBookmakers)));
+        }
+
+        function updateBookmakerFilters() {
+            const container = document.getElementById('bookmakerFilters');
+            const sortedBookmakers = Array.from(bookmakers).sort();
+            
+            // If no saved selections and it's first load, select all
+            if (selectedBookmakers.size === 0 && !localStorage.getItem('selectedBookmakers')) {
+                sortedBookmakers.forEach(b => selectedBookmakers.add(b));
+                saveBookmakerSelections();
+            }
+            
+            container.innerHTML = sortedBookmakers.map(bookmaker => `
+                <div class="flex items-center">
+                    <input type="checkbox" 
+                           id="bookmaker-${bookmaker.replace(/\s+/g, '-')}" 
+                           value="${bookmaker}"
+                           ${selectedBookmakers.has(bookmaker) ? 'checked' : ''}
+                           class="mr-2"
+                           onchange="toggleBookmaker('${bookmaker}')"
+                    >
+                    <label for="bookmaker-${bookmaker.replace(/\s+/g, '-')}" class="text-sm">
+                        ${bookmaker}
+                    </label>
+                </div>
+            `).join('');
+        }
+
+        function toggleBookmaker(bookmaker) {
+            if (selectedBookmakers.has(bookmaker)) {
+                selectedBookmakers.delete(bookmaker);
+            } else {
+                selectedBookmakers.add(bookmaker);
+            }
+            saveBookmakerSelections();
+            displayOpportunities();
+        }
+
+        function selectAllBookmakers(select) {
+            if (select) {
+                bookmakers.forEach(b => selectedBookmakers.add(b));
+            } else {
+                selectedBookmakers.clear();
+            }
+            saveBookmakerSelections();
+            updateBookmakerFilters();
+            displayOpportunities();
+        }
+
+        function updateSportCounts() {
+            // Reset all counts
+            sportOpportunities.clear();
+            sportOpportunities.set('all', 0);
+            
+            // Count opportunities for each sport
+            opportunities.forEach(opp => {
+                const sport = opp.sport;
+                sportOpportunities.set(sport, (sportOpportunities.get(sport) || 0) + 1);
+                sportOpportunities.set('all', sportOpportunities.get('all') + 1);
+            });
+
+            // Update the dropdown options
+            const select = document.getElementById('sportSelect');
+            const selectedValue = select.value;
+            
+            // Update "All Sports" count
+            select.options[0].textContent = `All Sports (${sportOpportunities.get('all') || 0})`;
+            
+            // Update other sports counts
+            for (let i = 1; i < select.options.length; i++) {
+                const option = select.options[i];
+                const sport = allSports.find(s => s.key === option.value);
+                if (sport) {
+                    const count = sportOpportunities.get(sport.title) || 0;
+                    option.textContent = `${sport.title} (${count})`;
+                }
+            }
+
+            // Restore selected value
+            select.value = selectedValue;
+        }
+
+        async function fetchSports() {
+            try {
+                const response = await fetch(`${BASE_URL}?apiKey=${API_KEY}`);
+                const sports = await response.json();
+                allSports = sports;
+                const select = document.getElementById('sportSelect');
+                
+                // Clear existing options except "All Sports"
+                select.innerHTML = '<option value="all">All Sports (0)</option>';
+                
+                sports.forEach(sport => {
+                    const option = document.createElement('option');
+                    option.value = sport.key;
+                    option.textContent = `${sport.title} (0)`;
+                    select.appendChild(option);
+                });
+
+                updateRequestsRemaining(response.headers);
+                
+                // Initial load of all sports data
+                updateOpportunities();
+            } catch (error) {
+                console.error('Error fetching sports:', error);
+            }
+        }
+
+        async function fetchOdds(sportKey) {
+            try {
+                const response = await fetch(
+                    `${BASE_URL}/${sportKey}/odds?apiKey=${API_KEY}&regions=us&markets=h2h`
+                );
+                const events = await response.json();
+                updateRequestsRemaining(response.headers);
+                return events;
+            } catch (error) {
+                console.error('Error fetching odds:', error);
+                return [];
+            }
+        }
+
+        async function fetchAllSportsOdds() {
+            try {
+                // Use Promise.all to fetch all sports concurrently
+                const promises = allSports.map(sport => 
+                    fetchOdds(sport.key)
+                        .then(events => events.map(event => ({ ...event, sport: sport.title })))
+                        .catch(error => {
+                            console.error(`Error fetching odds for ${sport.title}:`, error);
+                            return []; // Return empty array on error to continue with other sports
+                        })
+                );
+                
+                const results = await Promise.all(promises);
+                return results.flat(); // Combine all events into a single array
+            } catch (error) {
+                console.error('Error fetching all sports odds:', error);
+                return [];
+            }
+        }
+
+        function formatGameTime(isoString) {
+            const date = new Date(isoString);
+            // Convert to Central Time
+            const cstDate = new Date(date.toLocaleString('en-US', { timeZone: 'America/Chicago' }));
+            
+            // Format date and time
+            const today = new Date();
+            const tomorrow = new Date(today);
+            tomorrow.setDate(tomorrow.getDate() + 1);
+            
+            let dateStr;
+            if (cstDate.toDateString() === today.toDateString()) {
+                dateStr = 'Today';
+            } else if (cstDate.toDateString() === tomorrow.toDateString()) {
+                dateStr = 'Tomorrow';
+            } else {
+                dateStr = cstDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+            }
+            
+            // Format time in 12-hour format
+            const timeStr = cstDate.toLocaleTimeString('en-US', { 
+                hour: 'numeric', 
+                minute: '2-digit', 
+                hour12: true 
+            });
+            
+            return `${dateStr} ${timeStr} CST`;
+        }
+
+        function findArbitrageOpportunities(events) {
+            // First, update our bookmakers set with any new bookmakers
+            events.forEach(event => {
+                event.bookmakers?.forEach(b => {
+                    bookmakers.add(b.title);
+                    // Add to selected bookmakers if it's new
+                    if (!selectedBookmakers.has(b.title)) {
+                        selectedBookmakers.add(b.title);
+                    }
+                });
+            });
+            
+            // Update the bookmaker filter buttons
+            updateBookmakerFilters();
+
+            const opportunities = [];
+            const minReturn = parseFloat(document.getElementById('minReturn').value) || 0.5;
+            const maxStake = parseFloat(document.getElementById('maxStake').value) || 100;
+
+            events.forEach(event => {
+                // Filter bookmakers based on selection
+                const filteredBookmakers = event.bookmakers?.filter(b => selectedBookmakers.has(b.title)) || [];
+                if (!filteredBookmakers || filteredBookmakers.length < 2) return;
+
+                const bestOdds = {
+                    home: { odds: 0, bookmaker: '' },
+                    away: { odds: 0, bookmaker: '' }
+                };
+
+                filteredBookmakers.forEach(bookmaker => {
+                    const market = bookmaker.markets.find(m => m.key === 'h2h');
+                    if (!market) return;
+
+                    const homeOdds = market.outcomes.find(o => o.name === event.home_team)?.price;
+                    const awayOdds = market.outcomes.find(o => o.name === event.away_team)?.price;
+
+                    if (homeOdds && homeOdds > bestOdds.home.odds) {
+                        bestOdds.home = { odds: homeOdds, bookmaker: bookmaker.title };
+                    }
+                    if (awayOdds && awayOdds > bestOdds.away.odds) {
+                        bestOdds.away = { odds: awayOdds, bookmaker: bookmaker.title };
+                    }
+                });
+
+                const impliedProbHome = 1 / bestOdds.home.odds;
+                const impliedProbAway = 1 / bestOdds.away.odds;
+                const totalImpliedProb = impliedProbHome + impliedProbAway;
+
+                if (totalImpliedProb < 1) {
+                    const returnPercentage = ((1 / totalImpliedProb) - 1) * 100;
+                    if (returnPercentage >= minReturn) {
+                        const totalStake = maxStake;
+                        // Round stakes to whole numbers
+                        const homeStake = Math.round(totalStake * impliedProbHome / totalImpliedProb);
+                        const awayStake = Math.round(totalStake * impliedProbAway / totalImpliedProb);
+
+                        // Adjust stakes to ensure total is exactly maxStake
+                        const totalCalculatedStake = homeStake + awayStake;
+                        let adjustedHomeStake = homeStake;
+                        let adjustedAwayStake = awayStake;
+                        
+                        if (totalCalculatedStake !== totalStake) {
+                            // Add or subtract the difference from the larger stake
+                            const difference = totalStake - totalCalculatedStake;
+                            if (homeStake > awayStake) {
+                                adjustedHomeStake = homeStake + difference;
+                            } else {
+                                adjustedAwayStake = awayStake + difference;
+                            }
+                        }
+
+                        opportunities.push({
+                            homeTeam: event.home_team,
+                            awayTeam: event.away_team,
+                            sport: event.sport || 'Unknown',
+                            return: returnPercentage,
+                            commenceTime: event.commence_time,
+                            bets: [
+                                {
+                                    team: event.home_team,
+                                    odds: bestOdds.home.odds,
+                                    bookmaker: bestOdds.home.bookmaker,
+                                    stake: adjustedHomeStake
+                                },
+                                {
+                                    team: event.away_team,
+                                    odds: bestOdds.away.odds,
+                                    bookmaker: bestOdds.away.bookmaker,
+                                    stake: adjustedAwayStake
+                                }
+                            ]
+                        });
+                    }
+                }
+            });
+
+            // Sort opportunities by game time
+            return opportunities.sort((a, b) => new Date(a.commenceTime) - new Date(b.commenceTime));
+        }
+
+        function updateRequestsRemaining(headers) {
+            const remaining = headers.get('x-requests-remaining');
+            document.getElementById('requestsRemaining').textContent = remaining || 'Unknown';
+            document.getElementById('lastUpdated').textContent = new Date().toLocaleTimeString();
+        }
+
+        function updateMetrics() {
+            document.getElementById('totalOpps').textContent = opportunities.length;
+            
+            if (opportunities.length > 0) {
+                document.getElementById('bestReturn').textContent = 
+                    Math.max(...opportunities.map(o => o.return)).toFixed(2) + '%';
+                document.getElementById('avgReturn').textContent = 
+                    (opportunities.reduce((acc, o) => acc + o.return, 0) / opportunities.length).toFixed(2) + '%';
+                document.getElementById('totalPotential').textContent = 
+                    '$' + opportunities.reduce((acc, o) => acc + (o.return * 1000 / 100), 0).toFixed(2);
+            } else {
+                document.getElementById('bestReturn').textContent = '0%';
+                document.getElementById('avgReturn').textContent = '0%';
+                document.getElementById('totalPotential').textContent = '$0';
+            }
+        }
+
+        function sortOpportunities(opportunities, sortBy) {
+            const minProfit = parseFloat(document.getElementById('minProfit').value) || 0;
+            const maxStake = parseFloat(document.getElementById('maxStake').value) || 100;
+
+            // Filter by minimum profit first
+            opportunities = opportunities.filter(opp => 
+                (opp.return * maxStake / 100) >= minProfit
+            );
+
+            switch (sortBy) {
+                case 'return':
+                    return opportunities.sort((a, b) => b.return - a.return);
+                case 'profit':
+                    return opportunities.sort((a, b) => {
+                        const profitA = (a.return * maxStake / 100);
+                        const profitB = (b.return * maxStake / 100);
+                        return profitB - profitA;
+                    });
+                case 'time':
+                default:
+                    return opportunities.sort((a, b) => new Date(a.commenceTime) - new Date(b.commenceTime));
+            }
+        }
+
+        function decimalToAmerican(decimalOdds) {
+            if (decimalOdds >= 2) {
+                return '+' + Math.round((decimalOdds - 1) * 100);
+            } else {
+                return Math.round(-100 / (decimalOdds - 1));
+            }
+        }
+
+        function displayOpportunities() {
+            const container = document.getElementById('opportunities');
+            
+            // Update sport counts first
+            updateSportCounts();
+            
+            if (opportunities.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center text-gray-500 py-8">
+                        No arbitrage opportunities found for the selected sport
+                    </div>
+                `;
+                return;
+            }
+
+            // Sort opportunities based on selected criteria
+            const sortBy = document.getElementById('sortSelect').value;
+            const sortedOpportunities = sortOpportunities([...opportunities], sortBy);
+
+            container.innerHTML = sortedOpportunities.map(opp => `
+                <div class="border rounded p-4">
+                    <div class="flex justify-between items-start mb-4">
+                        <div>
+                            <h3 class="font-bold">${opp.homeTeam} vs ${opp.awayTeam}</h3>
+                            <p class="text-sm text-gray-600">${opp.sport}</p>
+                            <p class="text-sm text-gray-600">Game Time: ${formatGameTime(opp.commenceTime)}</p>
+                            <p class="text-sm text-gray-600">Expected Return: ${opp.return.toFixed(2)}%</p>
+                            <p class="text-sm text-gray-600">Profit: $${(opp.return * parseFloat(document.getElementById('maxStake').value) / 100).toFixed(2)}</p>
+                        </div>
+                        <div class="text-right">
+                            <p class="font-bold text-green-500">${opp.return.toFixed(2)}% Return</p>
+                        </div>
+                    </div>
+                    <div class="space-y-2">
+                        ${opp.bets.map(bet => `
+                            <div class="flex justify-between items-center border-t pt-2">
+                                <div>
+                                    <p class="font-medium">${bet.team}</p>
+                                    <p class="text-sm text-gray-600">${bet.bookmaker}</p>
+                                </div>
+                                <div class="text-right">
+                                    <p class="font-medium">Stake: $${parseFloat(bet.stake).toFixed(2)}</p>
+                                    <div class="text-sm text-gray-600">
+                                        <p>Decimal: ${bet.odds.toFixed(2)}</p>
+                                        <p>American: ${decimalToAmerican(bet.odds)}</p>
+                                    </div>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        async function updateOpportunities() {
+            const sportKey = document.getElementById('sportSelect').value;
+            let events = [];
+
+            if (sportKey === 'all') {
+                events = await fetchAllSportsOdds();
+            } else {
+                events = await fetchOdds(sportKey);
+            }
+
+            opportunities = findArbitrageOpportunities(events);
+            displayOpportunities();
+            updateMetrics();
+        }
+
+        // Update the initialization section
+        function startAutoRefresh() {
+            // Clear any existing interval
+            if (window.refreshInterval) {
+                clearInterval(window.refreshInterval);
+            }
+            // Start a new refresh interval
+            window.refreshInterval = setInterval(updateOpportunities, 60000);
+            // Update immediately
+            updateOpportunities();
+        }
+
+        // Initialize
+        fetchSports().then(() => {
+            // Start auto-refresh immediately after fetching sports
+            startAutoRefresh();
+        });
+
+        document.getElementById('sportSelect').addEventListener('change', () => {
+            // Restart auto-refresh when sport changes
+            startAutoRefresh();
+        });
+
+        document.getElementById('minReturn').addEventListener('change', updateOpportunities);
+        document.getElementById('maxStake').addEventListener('change', updateOpportunities);
+        document.getElementById('sortSelect').addEventListener('change', displayOpportunities);
+
+        document.getElementById('autoRefresh').addEventListener('change', function() {
+            if (this.checked) {
+                startAutoRefresh();
+            } else {
+                clearInterval(window.refreshInterval);
+            }
+        });
+
+        // Add event listener for profit filter
+        document.getElementById('minProfit').addEventListener('change', displayOpportunities);
+
+        // Load saved bookmakers on startup
+        loadSavedBookmakers();
+
+        // Update styles for better mobile display
+        const style = document.createElement('style');
+        style.textContent = `
+            @media (max-width: 768px) {
+                .card { @apply p-4; }
+                body { @apply p-4; }
+                .text-3xl { @apply text-2xl; }
+                #opportunities .border { @apply p-3; }
+                .space-y-4 > * { @apply mb-3; }
+            }
+        `;
+        document.head.appendChild(style);
+    </script>
+</body>
+</html> 
