@@ -6,69 +6,87 @@
     <style>
         .card { @apply bg-white rounded-lg shadow p-6 mb-4; }
         .button { @apply bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600; }
-        .input { @apply border rounded px-3 py-2 w-full; }
+        .input { @apply border rounded px-3 py-2; }
         .label { @apply block text-sm font-medium text-gray-700 mb-1; }
+        .settings-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            align-items: end;
+        }
+        .sticky-header {
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            background-color: #f3f4f6;
+            padding-top: 1rem;
+            padding-bottom: 1rem;
+        }
     </style>
 </head>
-<body class="bg-gray-100 p-8">
+<body class="bg-gray-100">
     <div class="max-w-7xl mx-auto">
-        <h1 class="text-3xl font-bold mb-8">Sports Arbitrage Finder</h1>
-        
-        <div class="grid grid-cols-4 gap-4 mb-8">
-            <div class="card">
-                <h3 class="font-bold mb-2">Total Opportunities</h3>
-                <p class="text-2xl" id="totalOpps">0</p>
-            </div>
-            <div class="card">
-                <h3 class="font-bold mb-2">Best Return</h3>
-                <p class="text-2xl text-green-500" id="bestReturn">0%</p>
-            </div>
-            <div class="card">
-                <h3 class="font-bold mb-2">Average Return</h3>
-                <p class="text-2xl text-green-500" id="avgReturn">0%</p>
-            </div>
-            <div class="card">
-                <h3 class="font-bold mb-2">Total Potential</h3>
-                <p class="text-2xl text-green-500" id="totalPotential">$0</p>
-            </div>
-        </div>
+        <div class="sticky-header">
+            <h1 class="text-3xl font-bold mb-8">Sports Arbitrage Finder</h1>
+            
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-8">
+                <!-- Arbitrage Calculator Card -->
+                <div class="card mb-0">
+                    <h2 class="text-xl font-bold mb-4">Arbitrage Calculator</h2>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="label">Bookmaker 1 Odds</label>
+                            <select class="input w-full mb-2" id="oddsFormat1">
+                                <option value="decimal">Decimal</option>
+                                <option value="american">American</option>
+                            </select>
+                            <input type="number" class="input w-full" id="odds1" placeholder="Enter odds" step="0.01">
+                        </div>
+                        <div>
+                            <label class="label">Bookmaker 2 Odds</label>
+                            <select class="input w-full mb-2" id="oddsFormat2">
+                                <option value="decimal">Decimal</option>
+                                <option value="american">American</option>
+                            </select>
+                            <input type="number" class="input w-full" id="odds2" placeholder="Enter odds" step="0.01">
+                        </div>
+                        <div>
+                            <label class="label">Total Stake ($)</label>
+                            <input type="number" class="input w-full" id="calcStake" value="100" min="1" step="1">
+                        </div>
+                        <div class="flex items-end">
+                            <button onclick="calculateArbitrage()" class="button w-full">Calculate</button>
+                        </div>
+                    </div>
+                    <div class="mt-4 p-4 bg-gray-50 rounded" id="calculatorResult">
+                        <p class="text-center text-gray-500">Enter odds to calculate potential arbitrage</p>
+                    </div>
+                </div>
 
-        <div class="grid grid-cols-[300px_1fr] gap-8">
-            <div>
-                <div class="card mb-4">
-                    <h2 class="text-xl font-bold mb-4">Settings</h2>
-                    <div class="space-y-4">
+                <!-- Settings Card -->
+                <div class="card mb-0">
+                    <div class="settings-grid">
                         <div>
                             <label class="label">Sport</label>
-                            <select class="input" id="sportSelect">
+                            <select class="input w-full" id="sportSelect">
                                 <option value="all">All Sports</option>
                             </select>
                         </div>
                         <div>
-                            <label class="label">Bookmakers</label>
-                            <div id="bookmakerFilters" class="space-y-2">
-                                <!-- Bookmaker buttons will be added here -->
-                            </div>
-                            <div class="mt-2 space-x-2">
-                                <button onclick="selectAllBookmakers(true)" class="text-sm text-blue-600 hover:underline">Select All</button>
-                                <button onclick="selectAllBookmakers(false)" class="text-sm text-blue-600 hover:underline">Deselect All</button>
-                            </div>
-                        </div>
-                        <div>
                             <label class="label">Minimum Return (%)</label>
-                            <input type="number" class="input" id="minReturn" value="0.5" min="0" step="0.1">
+                            <input type="number" class="input w-full" id="minReturn" value="0.5" min="0" step="0.1">
                         </div>
                         <div>
                             <label class="label">Maximum Stake ($)</label>
-                            <input type="number" class="input" id="maxStake" value="100" min="100" step="100">
+                            <input type="number" class="input w-full" id="maxStake" value="100" min="100" step="100">
                         </div>
                         <div>
                             <label class="label">Minimum Profit ($)</label>
-                            <input type="number" class="input" id="minProfit" value="0" min="0" step="1">
+                            <input type="number" class="input w-full" id="minProfit" value="0" min="0" step="1">
                         </div>
                         <div>
                             <label class="label">Sort By</label>
-                            <select class="input" id="sortSelect">
+                            <select class="input w-full" id="sortSelect">
                                 <option value="time">Game Time</option>
                                 <option value="return">Arbitrage Return % (High to Low)</option>
                                 <option value="profit">Profit $ (High to Low)</option>
@@ -76,26 +94,40 @@
                         </div>
                         <div>
                             <label class="label">Auto Refresh</label>
-                            <input type="checkbox" id="autoRefresh"> Every minute
+                            <div class="flex items-center h-[38px]">
+                                <input type="checkbox" id="autoRefresh" class="mr-2">
+                                <span class="text-sm text-gray-600">Every minute</span>
+                            </div>
                         </div>
-                    </div>
-                </div>
-
-                <div class="card">
-                    <h2 class="text-xl font-bold mb-4">API Status</h2>
-                    <div class="space-y-2">
-                        <p>Requests remaining: <span id="requestsRemaining">-</span></p>
-                        <p>Last updated: <span id="lastUpdated">Never</span></p>
                     </div>
                 </div>
             </div>
 
-            <div class="card">
-                <h2 class="text-xl font-bold mb-4">Live Opportunities</h2>
-                <div id="opportunities" class="space-y-4">
-                    <div class="text-center text-gray-500 py-8">
-                        Select a sport to view opportunities
-                    </div>
+            <!-- Bookmakers Section -->
+            <div class="card mb-4">
+                <label class="label">Bookmakers</label>
+                <div id="bookmakerFilters" class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2">
+                    <!-- Bookmaker buttons will be added here -->
+                </div>
+                <div class="mt-2 space-x-2">
+                    <button onclick="selectAllBookmakers(true)" class="text-sm text-blue-600 hover:underline">Select All</button>
+                    <button onclick="selectAllBookmakers(false)" class="text-sm text-blue-600 hover:underline">Deselect All</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-bold">Live Opportunities</h2>
+                <div class="text-sm text-gray-600">
+                    <span>API Status: </span>
+                    <span>Requests remaining: <span id="requestsRemaining">-</span> | </span>
+                    <span>Last updated: <span id="lastUpdated">Never</span></span>
+                </div>
+            </div>
+            <div id="opportunities" class="space-y-4">
+                <div class="text-center text-gray-500 py-8">
+                    Select a sport to view opportunities
                 </div>
             </div>
         </div>
@@ -398,23 +430,6 @@
             document.getElementById('lastUpdated').textContent = new Date().toLocaleTimeString();
         }
 
-        function updateMetrics() {
-            document.getElementById('totalOpps').textContent = opportunities.length;
-            
-            if (opportunities.length > 0) {
-                document.getElementById('bestReturn').textContent = 
-                    Math.max(...opportunities.map(o => o.return)).toFixed(2) + '%';
-                document.getElementById('avgReturn').textContent = 
-                    (opportunities.reduce((acc, o) => acc + o.return, 0) / opportunities.length).toFixed(2) + '%';
-                document.getElementById('totalPotential').textContent = 
-                    '$' + opportunities.reduce((acc, o) => acc + (o.return * 1000 / 100), 0).toFixed(2);
-            } else {
-                document.getElementById('bestReturn').textContent = '0%';
-                document.getElementById('avgReturn').textContent = '0%';
-                document.getElementById('totalPotential').textContent = '$0';
-            }
-        }
-
         function sortOpportunities(opportunities, sortBy) {
             const minProfit = parseFloat(document.getElementById('minProfit').value) || 0;
             const maxStake = parseFloat(document.getElementById('maxStake').value) || 100;
@@ -513,7 +528,6 @@
 
             opportunities = findArbitrageOpportunities(events);
             displayOpportunities();
-            updateMetrics();
         }
 
         // Update the initialization section
@@ -539,8 +553,8 @@
             startAutoRefresh();
         });
 
-        document.getElementById('minReturn').addEventListener('change', updateOpportunities);
-        document.getElementById('maxStake').addEventListener('change', updateOpportunities);
+        document.getElementById('minReturn').addEventListener('change', displayOpportunities);
+        document.getElementById('maxStake').addEventListener('change', displayOpportunities);
         document.getElementById('sortSelect').addEventListener('change', displayOpportunities);
 
         document.getElementById('autoRefresh').addEventListener('change', function() {
@@ -566,9 +580,99 @@
                 .text-3xl { @apply text-2xl; }
                 #opportunities .border { @apply p-3; }
                 .space-y-4 > * { @apply mb-3; }
+                .settings-grid {
+                    grid-template-columns: 1fr;
+                }
             }
         `;
         document.head.appendChild(style);
+
+        // Add new calculator functions
+        function americanToDecimal(american) {
+            if (american > 0) {
+                return (american / 100) + 1;
+            } else {
+                return (100 / Math.abs(american)) + 1;
+            }
+        }
+
+        function calculateArbitrage() {
+            const format1 = document.getElementById('oddsFormat1').value;
+            const format2 = document.getElementById('oddsFormat2').value;
+            let odds1 = parseFloat(document.getElementById('odds1').value);
+            let odds2 = parseFloat(document.getElementById('odds2').value);
+            const totalStake = parseFloat(document.getElementById('calcStake').value);
+
+            // Convert American odds to decimal if needed
+            if (format1 === 'american') {
+                odds1 = americanToDecimal(odds1);
+            }
+            if (format2 === 'american') {
+                odds2 = americanToDecimal(odds2);
+            }
+
+            if (!odds1 || !odds2 || !totalStake || odds1 <= 1 || odds2 <= 1) {
+                document.getElementById('calculatorResult').innerHTML = `
+                    <p class="text-center text-red-500">Please enter valid odds (greater than 1 for decimal)</p>
+                `;
+                return;
+            }
+
+            const prob1 = 1 / odds1;
+            const prob2 = 1 / odds2;
+            const totalProb = prob1 + prob2;
+            
+            if (totalProb >= 1) {
+                const margin = ((totalProb - 1) * 100).toFixed(2);
+                document.getElementById('calculatorResult').innerHTML = `
+                    <p class="text-center text-red-500">No arbitrage opportunity found (${margin}% margin)</p>
+                `;
+                return;
+            }
+
+            const profit = ((1 / totalProb) - 1) * 100;
+            const stake1 = Math.round((totalStake * prob1 / totalProb) * 100) / 100;
+            const stake2 = Math.round((totalStake * prob2 / totalProb) * 100) / 100;
+            const returns1 = (stake1 * odds1).toFixed(2);
+            const returns2 = (stake2 * odds2).toFixed(2);
+            const profitAmount = (returns1 - totalStake).toFixed(2);
+
+            document.getElementById('calculatorResult').innerHTML = `
+                <div class="space-y-2">
+                    <p class="text-green-600 font-bold text-center">Arbitrage Opportunity Found!</p>
+                    <p class="text-center">Expected Return: ${profit.toFixed(2)}%</p>
+                    <div class="grid grid-cols-2 gap-4 mt-2">
+                        <div>
+                            <p class="font-medium">Bet 1:</p>
+                            <p>Stake: $${stake1}</p>
+                            <p>Return: $${returns1}</p>
+                        </div>
+                        <div>
+                            <p class="font-medium">Bet 2:</p>
+                            <p>Stake: $${stake2}</p>
+                            <p>Return: $${returns2}</p>
+                        </div>
+                    </div>
+                    <p class="text-center text-green-600 mt-2">Profit: $${profitAmount}</p>
+                </div>
+            `;
+        }
+
+        // Add event listeners for odds format changes
+        document.getElementById('oddsFormat1').addEventListener('change', () => {
+            const input = document.getElementById('odds1');
+            input.value = ''; // Clear the input when format changes
+        });
+
+        document.getElementById('oddsFormat2').addEventListener('change', () => {
+            const input = document.getElementById('odds2');
+            input.value = ''; // Clear the input when format changes
+        });
+
+        // Add event listeners for calculator inputs
+        ['odds1', 'odds2', 'calcStake'].forEach(id => {
+            document.getElementById(id).addEventListener('input', calculateArbitrage);
+        });
     </script>
 </body>
 </html> 
