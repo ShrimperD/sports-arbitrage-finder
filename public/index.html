@@ -80,7 +80,7 @@
                             </div>
                             <div>
                                 <label class="label">Min Profit ($)</label>
-                                <input type="number" class="input w-full" id="minProfit" value="0" min="0" step="1">
+                                <input type="number" class="input w-full" id="minProfit" value="20" min="0" step="1">
                             </div>
                             <div>
                                 <label class="label">Sort By</label>
@@ -468,6 +468,44 @@
             }
         }
 
+        function convertDecimalToAmerican(decimal) {
+            if (decimal >= 2) {
+                return Math.round((decimal - 1) * 100);
+            } else {
+                return Math.round(-100 / (decimal - 1));
+            }
+        }
+
+        function convertDecimalToFractional(decimal) {
+            const tolerance = 1.0E-6;
+            let h1 = 1;
+            let h2 = 0;
+            let k1 = 0;
+            let k2 = 1;
+            let b = decimal;
+            do {
+                let a = Math.floor(b);
+                let aux = h1;
+                h1 = a * h1 + h2;
+                h2 = aux;
+                aux = k1;
+                k1 = a * k1 + k2;
+                k2 = aux;
+                b = 1 / (b - a);
+            } while (Math.abs(decimal - h1 / k1) > decimal * tolerance);
+            return `${h1}/${k1}`;
+        }
+
+        function formatOdds(decimal) {
+            const american = convertDecimalToAmerican(decimal);
+            const fractional = convertDecimalToFractional(decimal);
+            return {
+                decimal: decimal.toFixed(2),
+                american: american > 0 ? `+${american}` : american.toString(),
+                fractional: fractional
+            };
+        }
+
         function displayOpportunities() {
             const container = document.getElementById('opportunities');
             
@@ -490,37 +528,48 @@
             // Create a grid container for the opportunities
             container.innerHTML = `
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    ${sortedOpportunities.map(opp => `
-                        <div class="border rounded p-3 bg-white shadow-sm">
-                            <div class="flex justify-between items-start">
-                                <div class="flex-1">
-                                    <h3 class="font-bold text-sm">${opp.homeTeam} vs ${opp.awayTeam}</h3>
-                                    <div class="flex items-center gap-2 text-xs text-gray-600 mt-1">
-                                        <span>${opp.sport}</span>
-                                        <span>•</span>
-                                        <span>${formatGameTime(opp.commenceTime)}</span>
-                                    </div>
-                                </div>
-                                <div class="text-right ml-4">
-                                    <p class="font-bold text-green-500 text-sm">${opp.return.toFixed(2)}%</p>
-                                    <p class="text-xs text-green-600">$${(opp.return * parseFloat(document.getElementById('maxStake').value) / 100).toFixed(2)}</p>
-                                </div>
-                            </div>
-                            <div class="mt-2 space-y-2">
-                                ${opp.bets.map(bet => `
-                                    <div class="flex justify-between items-center border-t pt-2">
-                                        <div>
-                                            <p class="text-sm font-medium">${bet.team}</p>
-                                            <p class="text-xs text-gray-600">${bet.bookmaker}</p>
-                                        </div>
-                                        <div class="text-right">
-                                            <p class="text-sm font-medium">$${parseFloat(bet.stake).toFixed(2)}</p>
+                    ${sortedOpportunities.map(opp => {
+                        const odds1 = formatOdds(opp.bets[0].odds);
+                        const odds2 = formatOdds(opp.bets[1].odds);
+                        return `
+                            <div class="border rounded p-3 bg-white shadow-sm">
+                                <div class="flex justify-between items-start">
+                                    <div class="flex-1">
+                                        <h3 class="font-bold text-sm">${opp.homeTeam} vs ${opp.awayTeam}</h3>
+                                        <div class="flex items-center gap-2 text-xs text-gray-600 mt-1">
+                                            <span>${opp.sport}</span>
+                                            <span>•</span>
+                                            <span>${formatGameTime(opp.commenceTime)}</span>
                                         </div>
                                     </div>
-                                `).join('')}
+                                    <div class="text-right ml-4">
+                                        <p class="font-bold text-green-500 text-sm">${opp.return.toFixed(2)}%</p>
+                                        <p class="text-xs text-green-600">$${(opp.return * parseFloat(document.getElementById('maxStake').value) / 100).toFixed(2)}</p>
+                                    </div>
+                                </div>
+                                <div class="mt-2 space-y-2">
+                                    ${opp.bets.map((bet, index) => {
+                                        const odds = index === 0 ? odds1 : odds2;
+                                        return `
+                                            <div class="flex justify-between items-center border-t pt-2">
+                                                <div>
+                                                    <p class="text-sm font-medium">${bet.team}</p>
+                                                    <p class="text-xs text-gray-600">${bet.bookmaker}</p>
+                                                </div>
+                                                <div class="text-right">
+                                                    <p class="text-sm font-medium">$${parseFloat(bet.stake).toFixed(2)}</p>
+                                                    <div class="flex items-center gap-2 text-xs text-gray-500">
+                                                        <span>${odds.decimal}</span>
+                                                        <span>${odds.american}</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        `;
+                                    }).join('')}
+                                </div>
                             </div>
-                        </div>
-                    `).join('')}
+                        `;
+                    }).join('')}
                 </div>
             `;
         }
