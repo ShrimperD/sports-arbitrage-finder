@@ -166,6 +166,31 @@
     <script>
         const API_KEY = '4a0183ff75bc6a57c88422076c0f350b';
         const BASE_URL = 'https://api.the-odds-api.com/v4/sports';
+        
+        // Define preferred bookmakers and excluded bookmakers
+        const PREFERRED_BOOKMAKERS = new Set([
+            'ESPN Bets',
+            'BetAnySports',
+            'Hardrock Bet',
+            'BetOpenly',
+            'Novig',
+            'ProphetX',
+            'Caesars',
+            'Fanatics',
+            'FanDuel',
+            'DraftKings',
+            'BetMGM',
+            'BetOnline',
+            'BetUS',
+            'LowVig.ag',
+            'MyBookie.ag'
+        ]);
+        
+        const EXCLUDED_BOOKMAKERS = new Set([
+            'BetRivers',
+            'Bovada'
+        ]);
+
         let opportunities = [];
         let allSports = [];
         let sportOpportunities = new Map();
@@ -182,10 +207,20 @@
 
         function updateBookmakerFilters() {
             const container = document.getElementById('bookmakerFilters');
-            const sortedBookmakers = Array.from(bookmakers).sort();
+            const sortedBookmakers = Array.from(bookmakers)
+                .filter(b => !EXCLUDED_BOOKMAKERS.has(b)) // Filter out excluded bookmakers
+                .sort((a, b) => {
+                    // Sort preferred bookmakers first
+                    if (PREFERRED_BOOKMAKERS.has(a) && !PREFERRED_BOOKMAKERS.has(b)) return -1;
+                    if (!PREFERRED_BOOKMAKERS.has(a) && PREFERRED_BOOKMAKERS.has(b)) return 1;
+                    return a.localeCompare(b);
+                });
             
             if (selectedBookmakers.size === 0 && !localStorage.getItem('selectedBookmakers')) {
-                sortedBookmakers.forEach(b => selectedBookmakers.add(b));
+                // Only select from preferred bookmakers initially
+                sortedBookmakers
+                    .filter(b => PREFERRED_BOOKMAKERS.has(b))
+                    .forEach(b => selectedBookmakers.add(b));
             }
             
             container.innerHTML = sortedBookmakers.map(bookmaker => `
@@ -199,6 +234,7 @@
                     >
                     <label for="bookmaker-${bookmaker.replace(/\s+/g, '-')}" class="ml-1 text-xs">
                         ${bookmaker}
+                        ${PREFERRED_BOOKMAKERS.has(bookmaker) ? '<span class="text-blue-500 ml-1">★</span>' : ''}
                     </label>
                 </div>
             `).join('');
@@ -371,10 +407,10 @@
             events.forEach(event => {
                 if (event.bookmakers) {
                     event.bookmakers.forEach(b => {
-                        if (b.title) {
+                        if (b.title && !EXCLUDED_BOOKMAKERS.has(b.title)) {
                             bookmakers.add(b.title);
-                            // Add to selected bookmakers if it's new
-                            if (!selectedBookmakers.has(b.title)) {
+                            // Add to selected bookmakers if it's new and preferred
+                            if (!selectedBookmakers.has(b.title) && PREFERRED_BOOKMAKERS.has(b.title)) {
                                 selectedBookmakers.add(b.title);
                             }
                         }
@@ -393,8 +429,10 @@
             const maxStake = parseFloat(document.getElementById('maxStake').value) || 100;
 
             events.forEach(event => {
-                // Filter bookmakers based on selection
-                const filteredBookmakers = event.bookmakers?.filter(b => selectedBookmakers.has(b.title)) || [];
+                // Filter bookmakers based on selection and exclusions
+                const filteredBookmakers = event.bookmakers?.filter(b => 
+                    selectedBookmakers.has(b.title) && !EXCLUDED_BOOKMAKERS.has(b.title)
+                ) || [];
                 if (!filteredBookmakers || filteredBookmakers.length < 2) return;
 
                 const bestOdds = {
