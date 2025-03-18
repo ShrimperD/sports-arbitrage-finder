@@ -117,57 +117,8 @@
             </div>
             
             <div class="grid grid-cols-1 md:grid-cols-12 gap-4">
-                <!-- Arbitrage Calculator - 3 columns -->
-                <div class="col-span-1 md:col-span-3">
-                    <div class="card h-full">
-                        <h2 class="text-sm font-bold mb-2">Hedge Calculator</h2>
-                        <div class="space-y-1.5">
-                            <div class="grid grid-cols-2 gap-1">
-                                <div>
-                                    <label class="label text-xs has-tooltip">
-                                        Original Odds
-                                        <span class="tooltip">Enter the odds of your original bet (e.g., +150 or -130)</span>
-                                    </label>
-                                    <input type="text" class="input w-full text-sm" id="originalOdds" placeholder="+150">
-                                </div>
-                                <div>
-                                    <label class="label text-xs has-tooltip">
-                                        Original Bet
-                                        <span class="tooltip">Enter the amount of your original bet</span>
-                                    </label>
-                                    <input type="text" class="input w-full text-sm" id="originalBetAmount" value="100">
-                                </div>
-                            </div>
-                            <div>
-                                <label class="label text-xs has-tooltip">
-                                    Hedge Odds
-                                    <span class="tooltip">Enter the odds available for the hedge bet</span>
-                                </label>
-                                <input type="text" class="input w-full text-sm" id="hedgeOdds" placeholder="-130">
-                            </div>
-                            <div id="calculatorResult" class="mt-1.5 p-1.5 bg-gray-50 rounded text-xs">
-                                <div class="grid grid-cols-2 gap-1">
-                                    <div>
-                                        <p class="text-gray-600">Hedge Amount:</p>
-                                        <p class="font-medium" id="idealHedgeAmount">$0.00</p>
-                                    </div>
-                                    <div class="text-right">
-                                        <p class="text-gray-600">Total Stake:</p>
-                                        <p class="font-medium" id="totalBetAmount">$0.00</p>
-                                    </div>
-                                    <div class="col-span-2 text-center">
-                                        <p class="text-gray-600">Guaranteed Profit:</p>
-                                        <p class="font-medium text-green-600" id="totalProfit">$0.00</p>
-                                    </div>
-                                </div>
-                            </div>
-                            <button onclick="resetCalculator()" class="button w-full mt-1 text-xs py-1">Reset</button>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Settings - 9 columns -->
-                <div class="col-span-1 md:col-span-9">
+                <!-- Settings - 12 columns -->
+                <div class="col-span-1 md:col-span-12">
                     <div class="card">
                         <div class="grid grid-cols-2 md:grid-cols-6 gap-3">
                             <div class="col-span-1 md:col-span-1">
@@ -208,6 +159,29 @@
                                 <button onclick="selectAllBookmakers(true)" class="text-xs text-blue-600 hover:underline">Select All</button>
                                 <span class="text-gray-300 mx-1">|</span>
                                 <button onclick="selectAllBookmakers(false)" class="text-xs text-blue-600 hover:underline">Deselect All</button>
+                            </div>
+                        </div>
+
+                        <!-- Simplified Hedge Calculator -->
+                        <div class="mt-4 pt-4 border-t dark:border-gray-700">
+                            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                                <div>
+                                    <input type="text" class="input w-full text-sm" id="originalOdds" placeholder="Original Odds (+150)">
+                                </div>
+                                <div>
+                                    <input type="text" class="input w-full text-sm" id="originalBetAmount" value="100">
+                                </div>
+                                <div>
+                                    <input type="text" class="input w-full text-sm" id="hedgeOdds" placeholder="Hedge Odds (-130)">
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <div class="flex-1">
+                                        <div class="text-xs text-gray-600 dark:text-gray-400">Hedge: <span id="idealHedgeAmount" class="font-medium">$0.00</span></div>
+                                        <div class="text-xs text-gray-600 dark:text-gray-400">Total: <span id="totalBetAmount" class="font-medium">$0.00</span></div>
+                                        <div class="text-xs text-green-600 dark:text-green-400">Profit: <span id="totalProfit" class="font-medium">$0.00</span></div>
+                                    </div>
+                                    <button onclick="resetCalculator()" class="text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">Reset</button>
+                                </div>
                             </div>
                         </div>
                     </div>
