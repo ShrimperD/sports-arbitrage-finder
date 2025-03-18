@@ -53,10 +53,13 @@
         <div class="sticky-header">
             <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-4">
                 <h1 class="text-2xl font-bold mb-2 md:mb-0">Sports Arbitrage Finder</h1>
-                <div class="text-xs text-gray-600">
-                    <span>API: </span>
-                    <span>Requests: <span id="requestsRemaining">-</span> | </span>
-                    <span>Updated: <span id="lastUpdated">Never</span></span>
+                <div class="flex items-center gap-4">
+                    <button onclick="updateOpportunities()" class="button text-xs py-1">Refresh</button>
+                    <div class="text-xs text-gray-600">
+                        <span>API: </span>
+                        <span>Requests: <span id="requestsRemaining">-</span> | </span>
+                        <span>Updated: <span id="lastUpdated">Never</span></span>
+                    </div>
                 </div>
             </div>
             
@@ -130,12 +133,6 @@
                                     <option value="return">Return % (High-Low)</option>
                                     <option value="profit">Profit $ (High-Low)</option>
                                 </select>
-                            </div>
-                            <div class="col-span-1 md:col-span-1 flex items-center">
-                                <label class="inline-flex items-center">
-                                    <input type="checkbox" id="autoRefresh" class="form-checkbox h-4 w-4">
-                                    <span class="ml-1 text-xs">Auto Refresh</span>
-                                </label>
                             </div>
                         </div>
 
@@ -681,12 +678,6 @@
 
         // Update the initialization section
         function startAutoRefresh() {
-            // Clear any existing interval
-            if (window.refreshInterval) {
-                clearInterval(window.refreshInterval);
-            }
-            // Start a new refresh interval
-            window.refreshInterval = setInterval(updateOpportunities, 60000);
             // Update immediately
             updateOpportunities();
         }
@@ -699,20 +690,19 @@
             
             // Then fetch sports and start auto-refresh
             fetchSports().then(() => {
-                console.log('Sports fetched, starting auto-refresh...');
+                console.log('Sports fetched, loading opportunities...');
                 // Set initial sport selection to 'all'
                 document.getElementById('sportSelect').value = 'all';
                 // Update opportunities immediately
                 updateOpportunities();
-                startAutoRefresh();
             }).catch(error => {
                 console.error('Error during initialization:', error);
             });
         });
 
         document.getElementById('sportSelect').addEventListener('change', () => {
-            console.log('Sport changed, restarting auto-refresh...');
-            startAutoRefresh();
+            console.log('Sport changed, updating opportunities...');
+            updateOpportunities();
         });
 
         document.getElementById('minReturn').addEventListener('change', () => {
@@ -730,16 +720,6 @@
             displayOpportunities();
         });
 
-        document.getElementById('autoRefresh').addEventListener('change', function() {
-            console.log('Auto refresh toggled:', this.checked);
-            if (this.checked) {
-                startAutoRefresh();
-            } else {
-                clearInterval(window.refreshInterval);
-            }
-        });
-
-        // Add event listener for profit filter
         document.getElementById('minProfit').addEventListener('change', () => {
             console.log('Min profit changed, updating display...');
             displayOpportunities();
