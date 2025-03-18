@@ -4,10 +4,10 @@
     <title>Sports Arbitrage Finder</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        .card { @apply bg-white rounded-lg shadow p-4; }
-        .button { @apply bg-blue-500 text-white px-3 py-1.5 rounded text-sm hover:bg-blue-600; }
-        .input { @apply border rounded px-2 py-1.5 text-sm; }
-        .label { @apply block text-xs font-medium text-gray-700 mb-1; }
+        .card { @apply bg-white dark:bg-gray-800 rounded-lg shadow p-4; }
+        .button { @apply bg-blue-500 text-white px-3 py-1.5 rounded text-sm hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700; }
+        .input { @apply border rounded px-2 py-1.5 text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white; }
+        .label { @apply block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1; }
         .settings-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
@@ -15,8 +15,23 @@
             align-items: end;
         }
         .sticky-header {
-            background-color: #f3f4f6;
+            @apply bg-gray-100 dark:bg-gray-800;
             padding: 0.5rem;
+        }
+        .loading {
+            @apply animate-pulse bg-gray-200 dark:bg-gray-700 rounded;
+        }
+        .tooltip {
+            @apply invisible absolute bg-gray-800 dark:bg-gray-700 text-white text-xs rounded py-1 px-2 -mt-1;
+        }
+        .has-tooltip:hover .tooltip {
+            @apply visible z-50;
+        }
+        .opportunity-card {
+            @apply bg-white dark:bg-gray-800 border dark:border-gray-700;
+        }
+        .opportunity-card.pinned {
+            @apply border-blue-500 dark:border-blue-400 border-2;
         }
         /* Mobile-friendly styles */
         @media (max-width: 768px) {
@@ -41,6 +56,36 @@
             .opportunity-card .grid {
                 grid-template-columns: 1fr;
             }
+            .mobile-menu {
+                @apply fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 border-t dark:border-gray-700 p-2 z-50;
+            }
+            .mobile-menu .grid {
+                @apply grid-cols-3 gap-2;
+            }
+            .mobile-menu .button {
+                @apply w-full text-center;
+            }
+        }
+        @keyframes fadeInOut {
+            0% { opacity: 0; transform: translate(-50%, 20px); }
+            20% { opacity: 1; transform: translate(-50%, 0); }
+            80% { opacity: 1; transform: translate(-50%, 0); }
+            100% { opacity: 0; transform: translate(-50%, -20px); }
+        }
+        .animate-fade-in-out {
+            animation: fadeInOut 2s ease-in-out forwards;
+        }
+        .opportunity-card {
+            @apply bg-white dark:bg-gray-800 border dark:border-gray-700 transition-all duration-200;
+        }
+        .opportunity-card:hover {
+            @apply shadow-lg transform -translate-y-0.5;
+        }
+        .opportunity-card .bet-details {
+            @apply opacity-0 transition-opacity duration-200;
+        }
+        .opportunity-card:hover .bet-details {
+            @apply opacity-100;
         }
     </style>
 </head>
@@ -50,8 +95,20 @@
             <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-4">
                 <h1 class="text-2xl font-bold mb-2 md:mb-0">Sports Arbitrage Finder</h1>
                 <div class="flex items-center gap-4">
-                    <button onclick="updateOpportunities()" class="button text-xs py-1">Refresh</button>
-                    <div class="text-xs text-gray-600">
+                    <button onclick="updateOpportunities()" class="button text-xs py-1" id="refreshButton">
+                        <span class="button-text">Refresh</span>
+                        <span class="loading-spinner hidden">
+                            <svg class="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                        </span>
+                    </button>
+                    <button onclick="toggleDarkMode()" class="button text-xs py-1" id="darkModeButton">
+                        <span class="dark:hidden">🌙</span>
+                        <span class="hidden dark:inline">☀️</span>
+                    </button>
+                    <div class="text-xs text-gray-600 dark:text-gray-400">
                         <span>API: </span>
                         <span>Requests: <span id="requestsRemaining">-</span> | </span>
                         <span>Updated: <span id="lastUpdated">Never</span></span>
@@ -67,16 +124,25 @@
                         <div class="space-y-1.5">
                             <div class="grid grid-cols-2 gap-1">
                                 <div>
-                                    <label class="label text-xs">Original Odds</label>
+                                    <label class="label text-xs has-tooltip">
+                                        Original Odds
+                                        <span class="tooltip">Enter the odds of your original bet (e.g., +150 or -130)</span>
+                                    </label>
                                     <input type="text" class="input w-full text-sm" id="originalOdds" placeholder="+150">
                                 </div>
                                 <div>
-                                    <label class="label text-xs">Original Bet</label>
+                                    <label class="label text-xs has-tooltip">
+                                        Original Bet
+                                        <span class="tooltip">Enter the amount of your original bet</span>
+                                    </label>
                                     <input type="text" class="input w-full text-sm" id="originalBetAmount" value="100">
                                 </div>
                             </div>
                             <div>
-                                <label class="label text-xs">Hedge Odds</label>
+                                <label class="label text-xs has-tooltip">
+                                    Hedge Odds
+                                    <span class="tooltip">Enter the odds available for the hedge bet</span>
+                                </label>
                                 <input type="text" class="input w-full text-sm" id="hedgeOdds" placeholder="-130">
                             </div>
                             <div id="calculatorResult" class="mt-1.5 p-1.5 bg-gray-50 rounded text-xs">
@@ -161,6 +227,22 @@
                     Select a sport to view opportunities
                 </div>
             </div>
+        </div>
+    </div>
+
+    <!-- Mobile Menu -->
+    <div class="mobile-menu md:hidden">
+        <div class="grid">
+            <button onclick="scrollToTop()" class="button">
+                <span>↑</span>
+            </button>
+            <button onclick="updateOpportunities()" class="button">
+                <span>↻</span>
+            </button>
+            <button onclick="toggleDarkMode()" class="button">
+                <span class="dark:hidden">🌙</span>
+                <span class="hidden dark:inline">☀️</span>
+            </button>
         </div>
     </div>
 
@@ -585,6 +667,42 @@
             };
         }
 
+        function formatOpportunityText(opp) {
+            const odds1 = formatOdds(opp.bets[0].odds);
+            const odds2 = formatOdds(opp.bets[1].odds);
+            return `${opp.homeTeam} vs ${opp.awayTeam}
+${opp.sport} - ${formatGameTime(opp.commenceTime)}
+Return: ${opp.return.toFixed(2)}% ($${(opp.return * parseFloat(document.getElementById('maxStake').value) / 100).toFixed(2)})
+
+Bet 1: ${opp.bets[0].team}
+${opp.bets[0].bookmaker}
+Stake: $${parseFloat(opp.bets[0].stake).toFixed(2)}
+Odds: ${odds1.decimal} (${odds1.american})
+
+Bet 2: ${opp.bets[1].team}
+${opp.bets[1].bookmaker}
+Stake: $${parseFloat(opp.bets[1].stake).toFixed(2)}
+Odds: ${odds2.decimal} (${odds2.american})`;
+        }
+
+        async function copyToClipboard(text) {
+            try {
+                await navigator.clipboard.writeText(text);
+                showToast('Copied to clipboard!');
+            } catch (err) {
+                console.error('Failed to copy text: ', err);
+                showToast('Failed to copy to clipboard');
+            }
+        }
+
+        function showToast(message) {
+            const toast = document.createElement('div');
+            toast.className = 'fixed bottom-20 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white px-4 py-2 rounded shadow-lg z-50 animate-fade-in-out';
+            toast.textContent = message;
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 2000);
+        }
+
         function displayOpportunities() {
             const container = document.getElementById('opportunities');
             
@@ -615,7 +733,7 @@
                         const odds2 = formatOdds(opp.bets[1].odds);
                         const isPinned = pinnedOpportunities.has(opp.id);
                         return `
-                            <div class="opportunity-card border rounded p-3 bg-white shadow-sm ${isPinned ? 'border-blue-500 border-2' : ''}">
+                            <div class="opportunity-card ${isPinned ? 'pinned' : ''}">
                                 <div class="flex flex-col md:flex-row justify-between items-start md:items-center">
                                     <div class="flex-1">
                                         <div class="flex items-center gap-2">
@@ -626,7 +744,7 @@
                                                 </svg>
                                             </button>
                                         </div>
-                                        <div class="flex flex-wrap items-center gap-2 text-xs text-gray-600 mt-1">
+                                        <div class="flex flex-wrap items-center gap-2 text-xs text-gray-600 dark:text-gray-400 mt-1">
                                             <span>${opp.sport}</span>
                                             <span>•</span>
                                             <span>${formatGameTime(opp.commenceTime)}</span>
@@ -634,21 +752,21 @@
                                     </div>
                                     <div class="text-right mt-2 md:mt-0">
                                         <p class="font-bold text-green-500 text-sm">${opp.return.toFixed(2)}%</p>
-                                        <p class="text-xs text-green-600">$${(opp.return * parseFloat(document.getElementById('maxStake').value) / 100).toFixed(2)}</p>
+                                        <p class="text-xs text-green-600 dark:text-green-400">$${(opp.return * parseFloat(document.getElementById('maxStake').value) / 100).toFixed(2)}</p>
                                     </div>
                                 </div>
                                 <div class="mt-2 space-y-2">
                                     ${opp.bets.map((bet, index) => {
                                         const odds = index === 0 ? odds1 : odds2;
                                         return `
-                                            <div class="flex flex-col md:flex-row justify-between items-start md:items-center border-t pt-2">
+                                            <div class="flex flex-col md:flex-row justify-between items-start md:items-center border-t dark:border-gray-700 pt-2">
                                                 <div>
                                                     <p class="text-sm font-medium">${bet.team}</p>
-                                                    <p class="text-xs text-gray-600">${bet.bookmaker}</p>
+                                                    <p class="text-xs text-gray-600 dark:text-gray-400">${bet.bookmaker}</p>
                                                 </div>
                                                 <div class="text-right mt-1 md:mt-0">
                                                     <p class="text-sm font-medium">$${parseFloat(bet.stake).toFixed(2)}</p>
-                                                    <div class="flex items-center gap-2 text-xs text-gray-500">
+                                                    <div class="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
                                                         <span>${odds.decimal}</span>
                                                         <span>${odds.american}</span>
                                                     </div>
@@ -657,6 +775,12 @@
                                         `;
                                     }).join('')}
                                 </div>
+                                <div class="mt-2 flex justify-end gap-2">
+                                    <button onclick="copyToClipboard(formatOpportunityText(${JSON.stringify(opp)}))" 
+                                            class="text-xs text-blue-500 hover:text-blue-600 dark:text-blue-400 dark:hover:text-blue-300">
+                                        Copy Details
+                                    </button>
+                                </div>
                             </div>
                         `;
                     }).join('')}
@@ -664,11 +788,28 @@
             `;
         }
 
+        function showLoading(show) {
+            const button = document.getElementById('refreshButton');
+            const buttonText = button.querySelector('.button-text');
+            const spinner = button.querySelector('.loading-spinner');
+            
+            if (show) {
+                button.disabled = true;
+                buttonText.classList.add('hidden');
+                spinner.classList.remove('hidden');
+            } else {
+                button.disabled = false;
+                buttonText.classList.remove('hidden');
+                spinner.classList.add('hidden');
+            }
+        }
+
         async function updateOpportunities() {
             const sportKey = document.getElementById('sportSelect').value;
             let events = [];
 
             try {
+                showLoading(true);
                 if (sportKey === 'all') {
                     events = await fetchAllSportsOdds();
                 } else {
@@ -687,9 +828,13 @@
                 console.error('Error updating opportunities:', error);
                 document.getElementById('opportunities').innerHTML = `
                     <div class="text-center text-red-500 py-4">
-                        Error updating opportunities: ${error.message}
+                        <p class="font-bold">Error updating opportunities</p>
+                        <p class="text-sm">${error.message}</p>
+                        <button onclick="updateOpportunities()" class="button mt-2">Try Again</button>
                     </div>
                 `;
+            } finally {
+                showLoading(false);
             }
         }
 
@@ -812,7 +957,10 @@
             const input = document.getElementById(id);
             input.addEventListener('input', () => {
                 clearTimeout(timeoutId);
-                timeoutId = setTimeout(calculateArbitrage, 300);
+                timeoutId = setTimeout(() => {
+                    calculateArbitrage();
+                    saveCalculatorState();
+                }, 300);
             });
         });
 
@@ -890,6 +1038,66 @@
                 `;
             }).join('');
         }
+
+        // Add keyboard shortcuts
+        document.addEventListener('keydown', (e) => {
+            // Ctrl/Cmd + R to refresh
+            if ((e.ctrlKey || e.metaKey) && e.key === 'r') {
+                e.preventDefault();
+                updateOpportunities();
+            }
+            // Ctrl/Cmd + D to toggle dark mode
+            if ((e.ctrlKey || e.metaKey) && e.key === 'd') {
+                e.preventDefault();
+                toggleDarkMode();
+            }
+        });
+
+        // Save calculator state to localStorage
+        function saveCalculatorState() {
+            const state = {
+                originalOdds: document.getElementById('originalOdds').value,
+                originalBetAmount: document.getElementById('originalBetAmount').value,
+                hedgeOdds: document.getElementById('hedgeOdds').value
+            };
+            localStorage.setItem('calculatorState', JSON.stringify(state));
+        }
+
+        function loadCalculatorState() {
+            const saved = localStorage.getItem('calculatorState');
+            if (saved) {
+                const state = JSON.parse(saved);
+                document.getElementById('originalOdds').value = state.originalOdds;
+                document.getElementById('originalBetAmount').value = state.originalBetAmount;
+                document.getElementById('hedgeOdds').value = state.hedgeOdds;
+                calculateArbitrage();
+            }
+        }
+
+        // Dark mode support
+        function toggleDarkMode() {
+            document.documentElement.classList.toggle('dark');
+            localStorage.setItem('darkMode', document.documentElement.classList.contains('dark'));
+        }
+
+        function initDarkMode() {
+            if (localStorage.getItem('darkMode') === 'true' || 
+                (!localStorage.getItem('darkMode') && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+                document.documentElement.classList.add('dark');
+            }
+        }
+
+        // Scroll to top function
+        function scrollToTop() {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        // Initialize dark mode on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            initDarkMode();
+            loadCalculatorState();
+            // ... rest of existing DOMContentLoaded code ...
+        });
     </script>
 </body>
 </html> 
