@@ -155,6 +155,11 @@
 
         <div class="card mt-4">
             <h2 class="text-lg font-bold mb-4">Live Opportunities</h2>
+            <!-- Add pinned opportunities section -->
+            <div id="pinnedOpportunities" class="space-y-3 mb-4" style="display: none;">
+                <h3 class="text-sm font-bold text-blue-600 mb-2">Pinned Opportunities</h3>
+                <div class="pinned-container"></div>
+            </div>
             <div id="opportunities" class="space-y-3">
                 <div class="text-center text-gray-500 py-4">
                     Select a sport to view opportunities
@@ -196,6 +201,7 @@
         let sportOpportunities = new Map();
         let bookmakers = new Set();
         let selectedBookmakers = new Set();
+        let pinnedOpportunities = new Map(); // Store pinned opportunities
 
         // Load saved bookmaker selections from localStorage
         function loadSavedBookmakers() {
@@ -482,7 +488,11 @@
                             }
                         }
 
+                        // Generate a unique ID for the opportunity
+                        const id = `${event.id || Date.now()}-${event.home_team}-${event.away_team}`.replace(/\s+/g, '-');
+
                         opportunities.push({
+                            id,
                             homeTeam: event.home_team,
                             awayTeam: event.away_team,
                             sport: event.sport || 'Unknown',
@@ -582,6 +592,9 @@
         function displayOpportunities() {
             const container = document.getElementById('opportunities');
             
+            // Display pinned opportunities first
+            displayPinnedOpportunities();
+            
             // Update sport counts first
             updateSportCounts();
             
@@ -604,11 +617,19 @@
                     ${sortedOpportunities.map(opp => {
                         const odds1 = formatOdds(opp.bets[0].odds);
                         const odds2 = formatOdds(opp.bets[1].odds);
+                        const isPinned = pinnedOpportunities.has(opp.id);
                         return `
-                            <div class="opportunity-card border rounded p-3 bg-white shadow-sm">
+                            <div class="opportunity-card border rounded p-3 bg-white shadow-sm ${isPinned ? 'border-blue-500 border-2' : ''}">
                                 <div class="flex flex-col md:flex-row justify-between items-start md:items-center">
                                     <div class="flex-1">
-                                        <h3 class="font-bold text-sm">${opp.homeTeam} vs ${opp.awayTeam}</h3>
+                                        <div class="flex items-center gap-2">
+                                            <h3 class="font-bold text-sm">${opp.homeTeam} vs ${opp.awayTeam}</h3>
+                                            <button onclick="togglePin('${opp.id}')" class="text-gray-400 hover:text-blue-500">
+                                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                                                    <path d="M5 4a2 2 0 012-2h6a2 2 0 012 2v14l-5-2.5L5 18V4z"/>
+                                                </svg>
+                                            </button>
+                                        </div>
                                         <div class="flex flex-wrap items-center gap-2 text-xs text-gray-600 mt-1">
                                             <span>${opp.sport}</span>
                                             <span>•</span>
@@ -798,6 +819,81 @@
                 timeoutId = setTimeout(calculateArbitrage, 300);
             });
         });
+
+        // Add pin/unpin functions
+        function togglePin(opportunityId) {
+            const opportunity = opportunities.find(opp => opp.id === opportunityId);
+            if (!opportunity) return;
+
+            if (pinnedOpportunities.has(opportunityId)) {
+                pinnedOpportunities.delete(opportunityId);
+            } else {
+                pinnedOpportunities.set(opportunityId, opportunity);
+            }
+
+            displayOpportunities();
+        }
+
+        function displayPinnedOpportunities() {
+            const container = document.getElementById('pinnedOpportunities');
+            const pinnedContainer = container.querySelector('.pinned-container');
+
+            if (pinnedOpportunities.size === 0) {
+                container.style.display = 'none';
+                return;
+            }
+
+            container.style.display = 'block';
+            pinnedContainer.innerHTML = Array.from(pinnedOpportunities.values()).map(opp => {
+                const odds1 = formatOdds(opp.bets[0].odds);
+                const odds2 = formatOdds(opp.bets[1].odds);
+                return `
+                    <div class="opportunity-card border-2 border-blue-500 rounded p-3 bg-white shadow-sm">
+                        <div class="flex flex-col md:flex-row justify-between items-start md:items-center">
+                            <div class="flex-1">
+                                <div class="flex items-center gap-2">
+                                    <h3 class="font-bold text-sm">${opp.homeTeam} vs ${opp.awayTeam}</h3>
+                                    <button onclick="togglePin('${opp.id}')" class="text-blue-500 hover:text-blue-700">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                                            <path d="M5 4a2 2 0 012-2h6a2 2 0 012 2v14l-5-2.5L5 18V4z"/>
+                                        </svg>
+                                    </button>
+                                </div>
+                                <div class="flex flex-wrap items-center gap-2 text-xs text-gray-600 mt-1">
+                                    <span>${opp.sport}</span>
+                                    <span>•</span>
+                                    <span>${formatGameTime(opp.commenceTime)}</span>
+                                </div>
+                            </div>
+                            <div class="text-right mt-2 md:mt-0">
+                                <p class="font-bold text-green-500 text-sm">${opp.return.toFixed(2)}%</p>
+                                <p class="text-xs text-green-600">$${(opp.return * parseFloat(document.getElementById('maxStake').value) / 100).toFixed(2)}</p>
+                            </div>
+                        </div>
+                        <div class="mt-2 space-y-2">
+                            ${opp.bets.map((bet, index) => {
+                                const odds = index === 0 ? odds1 : odds2;
+                                return `
+                                    <div class="flex flex-col md:flex-row justify-between items-start md:items-center border-t pt-2">
+                                        <div>
+                                            <p class="text-sm font-medium">${bet.team}</p>
+                                            <p class="text-xs text-gray-600">${bet.bookmaker}</p>
+                                        </div>
+                                        <div class="text-right mt-1 md:mt-0">
+                                            <p class="text-sm font-medium">$${parseFloat(bet.stake).toFixed(2)}</p>
+                                            <div class="flex items-center gap-2 text-xs text-gray-500">
+                                                <span>${odds.decimal}</span>
+                                                <span>${odds.american}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
     </script>
 </body>
 </html> 
