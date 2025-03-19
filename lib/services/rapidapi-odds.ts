@@ -11,24 +11,38 @@ export class RapidApiOddsService {
     this.baseUrl = 'https://odds.p.rapidapi.com/v4';
     this.host = 'odds.p.rapidapi.com';
 
+    console.log('RapidAPI Service initialized with:', {
+      hasApiKey: !!this.apiKey,
+      apiKeyLength: this.apiKey.length,
+      baseUrl: this.baseUrl,
+      host: this.host
+    });
+
     if (!this.apiKey) {
       console.warn('RapidAPI key is not set. Please check your environment variables.');
     }
   }
 
   private get headers() {
-    return {
+    const headers = {
       'X-RapidAPI-Key': this.apiKey,
       'X-RapidAPI-Host': this.host,
     };
+    console.log('Request headers:', headers);
+    return headers;
   }
 
   async getArbitrageOpportunities(): Promise<Game[]> {
     try {
-      console.log('Fetching arbitrage opportunities from RapidAPI...');
-      const response = await fetch(`${this.baseUrl}/sports/upcoming/odds/?regions=us&markets=h2h,spreads&oddsFormat=decimal`, {
+      const url = `${this.baseUrl}/sports/upcoming/odds/?regions=us&markets=h2h,spreads&oddsFormat=decimal`;
+      console.log('Fetching from URL:', url);
+      
+      const response = await fetch(url, {
         headers: this.headers,
       });
+
+      console.log('Response status:', response.status);
+      console.log('Response headers:', Object.fromEntries(response.headers.entries()));
 
       if (!response.ok) {
         const errorText = await response.text();
