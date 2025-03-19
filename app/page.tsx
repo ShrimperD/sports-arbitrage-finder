@@ -57,6 +57,13 @@ export default function Home() {
   const loading = sportsLoading || oddsLoading;
   const notificationService = NotificationService.getInstance();
 
+  // Extract unique bookmakers from opportunities
+  const availableBookmakers = Array.from(
+    new Set(
+      opportunities.flatMap(opp => opp.bets.map(bet => bet.bookmaker))
+    )
+  ).sort();
+
   // Transform API opportunities into our format
   const transformedOpportunities = opportunities
     .filter(opp => {
@@ -193,6 +200,7 @@ export default function Home() {
             <ArbitrageControls
               settings={settings}
               onSettingsChange={setSettings}
+              availableBookmakers={availableBookmakers}
             />
 
             <Card>

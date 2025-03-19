@@ -42,9 +42,10 @@ export type ArbitrageSettings = {
 type ArbitrageControlsProps = {
   settings: ArbitrageSettings;
   onSettingsChange: (settings: ArbitrageSettings) => void;
+  availableBookmakers: string[];
 };
 
-export function ArbitrageControls({ settings, onSettingsChange }: ArbitrageControlsProps) {
+export function ArbitrageControls({ settings, onSettingsChange, availableBookmakers }: ArbitrageControlsProps) {
   const handleChange = <K extends keyof ArbitrageSettings>(
     key: K,
     value: ArbitrageSettings[K]
@@ -96,7 +97,7 @@ export function ArbitrageControls({ settings, onSettingsChange }: ArbitrageContr
         <div className="space-y-4">
           <Label>Bookmakers</Label>
           <div className="grid grid-cols-2 gap-2">
-            {['Bet365', 'William Hill', 'Betway', 'Unibet', 'Paddy Power', 'Ladbrokes'].map((bookmaker) => (
+            {availableBookmakers.map((bookmaker) => (
               <div key={bookmaker} className="flex items-center space-x-2">
                 <Checkbox
                   id={bookmaker}
