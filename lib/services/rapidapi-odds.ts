@@ -34,7 +34,7 @@ export class RapidApiOddsService {
 
   async getArbitrageOpportunities(): Promise<Game[]> {
     try {
-      const url = `${this.baseUrl}/v0/advantages/?type=ARBITRAGE`;
+      const url = `${this.baseUrl}/v1/advantages/`;
       console.log('Fetching from URL:', url);
       
       const response = await fetch(url, {
