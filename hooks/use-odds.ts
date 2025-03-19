@@ -123,28 +123,12 @@ export function useArbitrageOpportunities(sportKey?: string) {
     }))
   });
 
-  const transformRapidApiOpportunity = (game: Game): ArbitrageOpportunity => ({
-    id: `rapid_${game.id}`,
-    homeTeam: game.home_team,
-    awayTeam: game.away_team,
-    sport: game.sport_title,
-    commenceTime: game.commence_time,
-    return: 0, // Calculate return based on odds
-    source: 'RapidAPI' as const,
-    confidence: calculateConfidence({
-      id: game.id,
-      homeTeam: game.home_team,
-      awayTeam: game.away_team,
-      sport: game.sport_title,
-      commenceTime: game.commence_time,
-      return: 0,
-      source: 'RapidAPI',
-      confidence: 'low',
-      lastUpdated: new Date().toISOString(),
-      bets: []
-    }),
-    lastUpdated: new Date().toISOString(),
-    bets: game.bookmakers.flatMap(bm => 
+  const transformRapidApiOpportunity = (game: Game): ArbitrageOpportunity => {
+    // Extract unique bookmakers from the game
+    const bookmakers = game.bookmakers.map(bm => bm.title);
+    
+    // Transform the bets, ensuring we only include valid bookmakers
+    const bets = game.bookmakers.flatMap(bm => 
       bm.markets.flatMap(market => 
         market.outcomes.map(outcome => ({
           team: outcome.name,
@@ -154,8 +138,32 @@ export function useArbitrageOpportunities(sportKey?: string) {
           lastUpdated: new Date().toISOString()
         }))
       )
-    )
-  });
+    );
+
+    return {
+      id: `rapid_${game.id}`,
+      homeTeam: game.home_team,
+      awayTeam: game.away_team,
+      sport: game.sport_title,
+      commenceTime: game.commence_time,
+      return: 0, // Calculate return based on odds
+      source: 'RapidAPI' as const,
+      confidence: calculateConfidence({
+        id: game.id,
+        homeTeam: game.home_team,
+        awayTeam: game.away_team,
+        sport: game.sport_title,
+        commenceTime: game.commence_time,
+        return: 0,
+        source: 'RapidAPI',
+        confidence: 'low',
+        lastUpdated: new Date().toISOString(),
+        bets: []
+      }),
+      lastUpdated: new Date().toISOString(),
+      bets
+    };
+  };
 
   useEffect(() => {
     let isMounted = true;
