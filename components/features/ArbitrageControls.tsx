@@ -17,6 +17,7 @@ import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
+import { Checkbox } from '@/components/ui/checkbox';
 
 type InputChangeEvent = {
   target: {
@@ -33,6 +34,8 @@ export type ArbitrageSettings = {
   refreshInterval: number;
   notificationsEnabled: boolean;
   minReturnForNotification: number;
+  oddsApi: boolean;
+  rapidApi: boolean;
 };
 
 type ArbitrageControlsProps = {
@@ -58,6 +61,30 @@ export function ArbitrageControls({ settings, onSettingsChange }: ArbitrageContr
         <CardDescription>Configure arbitrage finder settings</CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
+        <div className="space-y-4">
+          <Label>Data Sources</Label>
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              id="oddsApi"
+              checked={settings.oddsApi}
+              onCheckedChange={(checked: boolean) => handleChange('oddsApi', checked)}
+            />
+            <label htmlFor="oddsApi" className="text-sm font-medium">
+              Odds API
+            </label>
+          </div>
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              id="rapidApi"
+              checked={settings.rapidApi}
+              onCheckedChange={(checked: boolean) => handleChange('rapidApi', checked)}
+            />
+            <label htmlFor="rapidApi" className="text-sm font-medium">
+              RapidAPI
+            </label>
+          </div>
+        </div>
+
         <div className="space-y-2">
           <Label>Minimum Return (%)</Label>
           <div className="flex items-center space-x-2">

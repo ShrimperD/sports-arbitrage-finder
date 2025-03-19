@@ -41,6 +41,8 @@ const defaultSettings: ArbitrageSettings = {
   refreshInterval: 60,
   notificationsEnabled: false,
   minReturnForNotification: 1.0,
+  oddsApi: true,
+  rapidApi: true,
 };
 
 export default function Home() {
@@ -48,10 +50,6 @@ export default function Home() {
   const [settings, setSettings] = useState<ArbitrageSettings>(defaultSettings);
   const [history, setHistory] = useState<HistoricalOpportunity[]>([]);
   const [betOpportunities, setBetOpportunities] = useState<Set<string>>(new Set());
-  const [apiSelections, setApiSelections] = useState({
-    oddsApi: true,
-    rapidApi: true,
-  });
   const { sports, loading: sportsLoading } = useSports();
   const { opportunities, loading: oddsLoading } = useArbitrageOpportunities(selectedSport);
 
@@ -64,7 +62,7 @@ export default function Home() {
       // Filter based on API selection
       const isOddsApi = opp.id.startsWith('odds-');
       const isRapidApi = opp.id.startsWith('rapid-');
-      return (isOddsApi && apiSelections.oddsApi) || (isRapidApi && apiSelections.rapidApi);
+      return (isOddsApi && settings.oddsApi) || (isRapidApi && settings.rapidApi);
     })
     .map((opp, index) => ({
       id: `${opp.homeTeam}-${opp.awayTeam}-${index}`,
@@ -199,9 +197,9 @@ export default function Home() {
                 <div className="flex items-center space-x-2">
                   <Checkbox
                     id="oddsApi"
-                    checked={apiSelections.oddsApi}
+                    checked={settings.oddsApi}
                     onCheckedChange={(checked: boolean) => 
-                      setApiSelections(prev => ({ ...prev, oddsApi: checked }))
+                      setSettings(prev => ({ ...prev, oddsApi: checked }))
                     }
                   />
                   <label htmlFor="oddsApi" className="text-sm font-medium">
@@ -211,9 +209,9 @@ export default function Home() {
                 <div className="flex items-center space-x-2">
                   <Checkbox
                     id="rapidApi"
-                    checked={apiSelections.rapidApi}
+                    checked={settings.rapidApi}
                     onCheckedChange={(checked: boolean) => 
-                      setApiSelections(prev => ({ ...prev, rapidApi: checked }))
+                      setSettings(prev => ({ ...prev, rapidApi: checked }))
                     }
                   />
                   <label htmlFor="rapidApi" className="text-sm font-medium">
