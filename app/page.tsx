@@ -73,6 +73,8 @@ export default function Home() {
       const apiFilter = (isOddsApi && settings.oddsApi) || (isRapidApi && settings.rapidApi);
       
       // Filter based on selected bookmakers
+      // If no bookmakers are selected, show all opportunities
+      // If bookmakers are selected, show only opportunities that have at least one selected bookmaker
       const bookmakerFilter = settings.selectedBookmakers.length === 0 || 
         opp.bets.some(bet => settings.selectedBookmakers.includes(bet.bookmaker));
       
@@ -202,39 +204,6 @@ export default function Home() {
               onSettingsChange={setSettings}
               availableBookmakers={availableBookmakers}
             />
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Data Sources</CardTitle>
-                <CardDescription>Select which APIs to fetch data from</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="oddsApi"
-                    checked={settings.oddsApi}
-                    onCheckedChange={(checked: boolean) => 
-                      setSettings(prev => ({ ...prev, oddsApi: checked }))
-                    }
-                  />
-                  <label htmlFor="oddsApi" className="text-sm font-medium">
-                    Odds API
-                  </label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="rapidApi"
-                    checked={settings.rapidApi}
-                    onCheckedChange={(checked: boolean) => 
-                      setSettings(prev => ({ ...prev, rapidApi: checked }))
-                    }
-                  />
-                  <label htmlFor="rapidApi" className="text-sm font-medium">
-                    RapidAPI
-                  </label>
-                </div>
-              </CardContent>
-            </Card>
           </div>
 
           <Tabs defaultValue="opportunities">

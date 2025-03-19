@@ -63,6 +63,10 @@ export function ArbitrageControls({ settings, onSettingsChange, availableBookmak
     handleChange('selectedBookmakers', newBookmakers);
   };
 
+  const handleSelectAll = (checked: boolean) => {
+    handleChange('selectedBookmakers', checked ? availableBookmakers : []);
+  };
+
   return (
     <Card>
       <CardHeader>
@@ -95,7 +99,23 @@ export function ArbitrageControls({ settings, onSettingsChange, availableBookmak
         </div>
 
         <div className="space-y-4">
-          <Label>Bookmakers</Label>
+          <div className="flex items-center justify-between">
+            <Label>Bookmakers</Label>
+            <div className="flex gap-2">
+              <button
+                onClick={() => handleSelectAll(true)}
+                className="text-xs text-blue-600 hover:underline"
+              >
+                Select All
+              </button>
+              <button
+                onClick={() => handleSelectAll(false)}
+                className="text-xs text-blue-600 hover:underline"
+              >
+                Deselect All
+              </button>
+            </div>
+          </div>
           <div className="grid grid-cols-2 gap-2">
             {availableBookmakers.map((bookmaker) => (
               <div key={bookmaker} className="flex items-center space-x-2">
