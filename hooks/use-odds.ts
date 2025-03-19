@@ -52,62 +52,73 @@ export function useArbitrageOpportunities(sportKey?: string) {
   useEffect(() => {
     const fetchOpportunities = async () => {
       try {
+        console.log('Starting to fetch opportunities...');
         const oddsApi = new OddsApiService();
         const rapidApi = new RapidApiOddsService();
         
-        console.log('Fetching opportunities from both APIs...');
-        
-        // Fetch from both APIs
-        const [oddsApiOpportunities, rapidApiOpportunities] = await Promise.all([
-          sportKey ? oddsApi.findArbitrageOpportunities(sportKey) : Promise.resolve([]),
-          rapidApi.getArbitrageOpportunities()
-        ]);
+        let oddsApiOpportunities: ArbitrageOpportunity[] = [];
+        let rapidApiOpportunities: ArbitrageOpportunity[] = [];
 
-        // Transform RapidAPI opportunities to match our format
-        const transformedRapidApiOpportunities = rapidApiOpportunities.map(game => ({
-          id: `rapid_${game.id}`,
-          homeTeam: game.home_team,
-          awayTeam: game.away_team,
-          sport: game.sport_title,
-          commenceTime: game.commence_time,
-          return: 0, // Calculate return based on odds
-          bets: game.bookmakers.flatMap(bm => 
-            bm.markets.flatMap(market => 
-              market.outcomes.map(outcome => ({
-                team: outcome.name,
-                odds: outcome.price,
-                bookmaker: bm.title,
-                stake: 0 // Calculate stake based on odds
-              }))
+        // Fetch from Odds API
+        try {
+          console.log('Fetching from Odds API...');
+          if (sportKey) {
+            const oddsData = await oddsApi.findArbitrageOpportunities(sportKey);
+            oddsApiOpportunities = oddsData.map(opp => ({
+              id: `odds_${opp.homeTeam}_${opp.awayTeam}`,
+              homeTeam: opp.homeTeam,
+              awayTeam: opp.awayTeam,
+              sport: sportKey,
+              commenceTime: new Date().toISOString(),
+              return: opp.opportunity?.totalReturn || 0,
+              bets: opp.opportunity?.bets || []
+            }));
+            console.log('Odds API Opportunities:', oddsApiOpportunities);
+          }
+        } catch (oddsErr) {
+          console.error('Error fetching from Odds API:', oddsErr);
+        }
+
+        // Fetch from RapidAPI
+        try {
+          console.log('Fetching from RapidAPI...');
+          const rapidData = await rapidApi.getArbitrageOpportunities();
+          rapidApiOpportunities = rapidData.map(game => ({
+            id: `rapid_${game.id}`,
+            homeTeam: game.home_team,
+            awayTeam: game.away_team,
+            sport: game.sport_title,
+            commenceTime: game.commence_time,
+            return: 0, // Calculate return based on odds
+            bets: game.bookmakers.flatMap(bm => 
+              bm.markets.flatMap(market => 
+                market.outcomes.map(outcome => ({
+                  team: outcome.name,
+                  odds: outcome.price,
+                  bookmaker: bm.title,
+                  stake: 0 // Calculate stake based on odds
+                }))
+              )
             )
-          )
-        }));
-
-        // Transform Odds API opportunities
-        const transformedOddsApiOpportunities = oddsApiOpportunities.map(opp => ({
-          id: `odds_${opp.homeTeam}_${opp.awayTeam}`,
-          homeTeam: opp.homeTeam,
-          awayTeam: opp.awayTeam,
-          sport: sportKey || '',
-          commenceTime: new Date().toISOString(),
-          return: opp.opportunity?.totalReturn || 0,
-          bets: opp.opportunity?.bets || []
-        }));
-
-        console.log('Odds API Opportunities:', transformedOddsApiOpportunities);
-        console.log('RapidAPI Opportunities:', transformedRapidApiOpportunities);
+          }));
+          console.log('RapidAPI Opportunities:', rapidApiOpportunities);
+        } catch (rapidErr) {
+          console.error('Error fetching from RapidAPI:', rapidErr);
+        }
 
         // Combine and deduplicate opportunities
-        const combinedOpportunities = [...transformedOddsApiOpportunities, ...transformedRapidApiOpportunities];
+        const combinedOpportunities = [...oddsApiOpportunities, ...rapidApiOpportunities];
+        console.log('Combined opportunities before deduplication:', combinedOpportunities);
+
         const uniqueOpportunities = combinedOpportunities.filter((opp, index, self) =>
           index === self.findIndex((o) => o.id === opp.id)
         );
 
-        console.log('Combined and deduplicated opportunities:', uniqueOpportunities);
+        console.log('Final deduplicated opportunities:', uniqueOpportunities);
         setOpportunities(uniqueOpportunities);
       } catch (err) {
+        console.error('Error in fetchOpportunities:', err);
         setError('Failed to fetch arbitrage opportunities');
-        console.error('Error fetching opportunities:', err);
       } finally {
         setLoading(false);
       }
