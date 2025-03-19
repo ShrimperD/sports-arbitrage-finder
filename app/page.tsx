@@ -168,7 +168,7 @@ export default function Home() {
                     <SelectValue placeholder="Select a sport..." />
                   </SelectTrigger>
                   <SelectContent>
-                    {sports.map((sport: Sport) => (
+                    {sports.map((sport) => (
                       <SelectItem key={sport.key} value={sport.key}>
                         {sport.title}
                       </SelectItem>
