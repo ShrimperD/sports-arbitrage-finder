@@ -8,8 +8,8 @@ export class RapidApiOddsService {
   constructor() {
     // In Next.js, we need to use NEXT_PUBLIC_ prefix for client-side environment variables
     this.apiKey = process.env.NEXT_PUBLIC_RAPIDAPI_KEY || '';
-    this.baseUrl = 'https://odds.p.rapidapi.com/v4';
-    this.host = 'odds.p.rapidapi.com';
+    this.baseUrl = 'https://sportsbook-api2.p.rapidapi.com';
+    this.host = 'sportsbook-api2.p.rapidapi.com';
 
     console.log('RapidAPI Service initialized with:', {
       hasApiKey: !!this.apiKey,
@@ -34,7 +34,7 @@ export class RapidApiOddsService {
 
   async getArbitrageOpportunities(): Promise<Game[]> {
     try {
-      const url = `${this.baseUrl}/sports/upcoming/odds/?regions=us&markets=h2h,spreads&oddsFormat=decimal`;
+      const url = `${this.baseUrl}/v0/advantages/?type=ARBITRAGE`;
       console.log('Fetching from URL:', url);
       
       const response = await fetch(url, {
