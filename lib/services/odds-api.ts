@@ -1,48 +1,52 @@
 import { env } from '../env';
-
-export type Sport = {
-  key: string;
-  group: string;
-  title: string;
-  description: string;
-  active: boolean;
-  has_outrights: boolean;
-};
-
-export type Bookmaker = {
-  key: string;
-  title: string;
-  last_update: string;
-  markets: Market[];
-};
-
-export type Market = {
-  key: string;
-  outcomes: Outcome[];
-};
-
-export type Outcome = {
-  name: string;
-  price: number;
-};
-
-export type Game = {
-  id: string;
-  sport_key: string;
-  sport_title: string;
-  commence_time: string;
-  home_team: string;
-  away_team: string;
-  bookmakers: Bookmaker[];
-};
-
-const BASE_URL = 'https://api.the-odds-api.com/v4';
+import { Sport, Game, Bookmaker, Market, Outcome } from '../../types/odds';
 
 export class OddsApiService {
-  private apiKey: string;
+  private readonly apiKey: string;
+  private readonly baseUrl: string;
 
   constructor() {
-    this.apiKey = env.ODDS_API_KEY;
+    this.apiKey = process.env.NEXT_PUBLIC_ODDS_API_KEY || '';
+    this.baseUrl = 'https://api.the-odds-api.com/v4/sports';
+
+    if (!this.apiKey) {
+      console.warn('Odds API key is not set. Please check your environment variables.');
+    }
+  }
+
+  async getSports(): Promise<Sport[]> {
+    try {
+      const response = await fetch(`${this.baseUrl}/all?apiKey=${this.apiKey}`);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      return await response.json();
+    } catch (error) {
+      console.error('Error fetching sports:', error);
+      return [];
+    }
+  }
+
+  async getArbitrageOpportunities(): Promise<Game[]> {
+    try {
+      const response = await fetch(
+        `${this.baseUrl}/all/odds/?apiKey=${this.apiKey}&regions=us&markets=h2h&oddsFormat=american`
+      );
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      return data.map((item: any) => ({
+        ...item,
+        id: `odds_${item.id}`,
+        source: 'Odds API'
+      }));
+    } catch (error) {
+      console.error('Error fetching arbitrage opportunities:', error);
+      return [];
+    }
   }
 
   private async fetch<T>(endpoint: string, params: Record<string, string> = {}): Promise<T> {
@@ -51,17 +55,13 @@ export class OddsApiService {
       ...params
     });
 
-    const response = await fetch(`${BASE_URL}${endpoint}?${queryParams}`);
+    const response = await fetch(`${this.baseUrl}${endpoint}?${queryParams}`);
     
     if (!response.ok) {
       throw new Error(`API request failed: ${response.statusText}`);
     }
 
     return response.json();
-  }
-
-  async getSports(): Promise<Sport[]> {
-    return this.fetch<Sport[]>('/sports');
   }
 
   async getOdds(sportKey: string): Promise<Game[]> {

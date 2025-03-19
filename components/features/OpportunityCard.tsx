@@ -4,6 +4,8 @@ import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { CheckCircle2, Copy } from 'lucide-react';
+import { Game } from "@/types/odds";
+import { formatDate } from "@/lib/utils";
 
 interface Bet {
   team: string;
@@ -25,11 +27,11 @@ interface Opportunity {
 
 interface OpportunityCardProps {
   key?: string;
-  opportunity: Opportunity;
-  onBetPlaced: (id: string) => void;
+  opportunity: Game;
+  onSelect: (opportunity: Game) => void;
 }
 
-export function OpportunityCard({ opportunity, onBetPlaced }: OpportunityCardProps) {
+export function OpportunityCard({ opportunity, onSelect }: OpportunityCardProps) {
   const [copied, setCopied] = useState(false);
 
   const formatOdds = (odds: number) => {
@@ -59,7 +61,7 @@ Odds: ${odds2.decimal} (${odds2.american})`;
 
   const handleCopy = async () => {
     try {
-      await navigator.clipboard.writeText(formatOpportunityText(opportunity));
+      await navigator.clipboard.writeText(formatOpportunityText(opportunity as Opportunity));
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch (err) {
@@ -68,67 +70,23 @@ Odds: ${odds2.decimal} (${odds2.american})`;
   };
 
   return (
-    <Card className={`${opportunity.isBetPlaced ? 'bg-red-50 dark:bg-red-950/20' : ''}`}>
-      <CardHeader>
+    <Card 
+      className={`${opportunity.isBetPlaced ? 'bg-red-50 dark:bg-red-950/20' : ''} cursor-pointer hover:bg-accent transition-colors`}
+      onClick={() => onSelect(opportunity)}
+    >
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle className="text-sm font-medium">
-          {opportunity.homeTeam} vs {opportunity.awayTeam}
+          {opportunity.sport_title}
         </CardTitle>
+        <span className="text-xs text-muted-foreground">
+          {opportunity.source || 'Odds API'}
+        </span>
       </CardHeader>
       <CardContent>
-        <div className="space-y-4">
-          <div className="flex justify-between items-center">
-            <div className="text-sm text-muted-foreground">
-              {opportunity.sport} • {new Date(opportunity.commenceTime).toLocaleString()}
-            </div>
-            <div className="text-sm font-medium text-green-500">
-              {opportunity.return.toFixed(2)}%
-            </div>
-          </div>
-
-          {opportunity.bets.map((bet, index) => (
-            <div key={index} className="space-y-1">
-              <div className="flex justify-between items-center">
-                <div>
-                  <div className="font-medium">{bet.team}</div>
-                  <div className="text-sm text-muted-foreground">{bet.bookmaker}</div>
-                </div>
-                <div className="text-right">
-                  <div className="font-medium">${bet.stake.toFixed(2)}</div>
-                  <div className="text-sm text-muted-foreground">
-                    {formatOdds(bet.odds).decimal} ({formatOdds(bet.odds).american})
-                  </div>
-                </div>
-              </div>
-            </div>
-          ))}
-
-          <div className="flex justify-end gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleCopy}
-              className="text-xs"
-            >
-              {copied ? (
-                <>
-                  <CheckCircle2 className="mr-2 h-4 w-4" />
-                  Copied
-                </>
-              ) : (
-                <>
-                  <Copy className="mr-2 h-4 w-4" />
-                  Copy Details
-                </>
-              )}
-            </Button>
-            <Button
-              variant={opportunity.isBetPlaced ? "secondary" : "default"}
-              size="sm"
-              onClick={() => onBetPlaced(opportunity.id)}
-              className="text-xs"
-            >
-              {opportunity.isBetPlaced ? 'Bet Placed' : 'Place Bet'}
-            </Button>
+        <div className="text-sm">
+          <div className="font-medium">{opportunity.home_team} vs {opportunity.away_team}</div>
+          <div className="text-xs text-muted-foreground">
+            {formatDate(opportunity.commence_time)}
           </div>
         </div>
       </CardContent>

@@ -25,8 +25,8 @@ export class RapidApiOddsService {
 
   private get headers() {
     const headers = {
-      'X-RapidAPI-Key': this.apiKey,
-      'X-RapidAPI-Host': this.host,
+      'x-rapidapi-key': this.apiKey,
+      'x-rapidapi-host': this.host,
     };
     console.log('Request headers:', headers);
     return headers;
@@ -38,6 +38,7 @@ export class RapidApiOddsService {
       console.log('Fetching from URL:', url);
       
       const response = await fetch(url, {
+        method: 'GET',
         headers: this.headers,
       });
 
@@ -71,12 +72,13 @@ export class RapidApiOddsService {
     try {
       // Transform the RapidAPI response to match our Game type
       return data.map((item: any) => ({
-        id: item.id,
+        id: `rapid_${item.id}`,
         sport_key: item.sport_key,
         sport_title: item.sport_title,
         commence_time: item.commence_time,
         home_team: item.home_team,
         away_team: item.away_team,
+        source: 'RapidAPI',
         bookmakers: item.bookmakers.map((bookmaker: any) => ({
           key: bookmaker.key,
           title: bookmaker.title,
