@@ -1,5 +1,62 @@
 import { Sport, Game, Bookmaker, Market, Outcome } from '../../types/odds';
 
+interface Competition {
+  key: string;
+  slug: string;
+  name: string;
+  shortName: string;
+  sport: string;
+}
+
+interface Event {
+  key: string;
+  name: string;
+  startTime: string;
+  homeParticipantKey: string;
+  participants: {
+    key: string;
+    slug: string;
+    name: string;
+    shortName: string;
+    sport: string;
+  }[];
+}
+
+interface MarketOutcome {
+  key: string;
+  description: string | null;
+  modifier: number;
+  payout: number;
+  type: string;
+  live: boolean;
+  marketKey: string;
+  readAt: string;
+  lastFoundAt: string;
+  source: string;
+  participant: {
+    key: string;
+    slug: string;
+    name: string;
+    shortName: string;
+    sport: string;
+  };
+}
+
+interface MarketData {
+  key: string;
+  description: string | null;
+  type: string;
+  segment: string;
+  lastFoundAt: string;
+  outcomes: {
+    [key: string]: MarketOutcome[];
+  };
+}
+
+interface EventWithOdds extends Event {
+  markets: MarketData[];
+}
+
 export class RapidApiOddsService {
   private readonly apiKey: string;
   private readonly baseUrl: string;
@@ -34,67 +91,132 @@ export class RapidApiOddsService {
 
   async getArbitrageOpportunities(): Promise<Game[]> {
     try {
-      const url = `${this.baseUrl}/v1/advantages/`;
-      console.log('Fetching from URL:', url);
-      
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: this.headers,
-      });
+      // Step 1: Get all competitions
+      const competitions = await this.getCompetitions();
+      console.log('Found competitions:', competitions);
 
-      console.log('Response status:', response.status);
-      console.log('Response headers:', Object.fromEntries(response.headers.entries()));
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('RapidAPI error response:', {
-          status: response.status,
-          statusText: response.statusText,
-          body: errorText
-        });
-        throw new Error(`HTTP error! status: ${response.status}`);
+      // Step 2: Get events for each competition
+      const allEvents: Event[] = [];
+      for (const competition of competitions) {
+        const events = await this.getEvents(competition.key);
+        allEvents.push(...events);
       }
+      console.log('Found events:', allEvents);
 
-      const data = await response.json();
-      console.log('Raw RapidAPI response:', data);
+      // Step 3: Get odds for all events (in batches of 50)
+      const eventKeys = allEvents.map(event => event.key);
+      const oddsData: EventWithOdds[] = [];
       
-      const transformedData = this.transformResponse(data);
-      console.log('Transformed RapidAPI data:', transformedData);
-      
-      return transformedData;
+      for (let i = 0; i < eventKeys.length; i += 50) {
+        const batch = eventKeys.slice(i, i + 50);
+        const eventsWithOdds = await this.getEventsWithOdds(batch);
+        oddsData.push(...eventsWithOdds);
+      }
+      console.log('Found odds data:', oddsData);
+
+      // Transform the data to match our Game type
+      return this.transformResponse(oddsData);
     } catch (error) {
       console.error('Error fetching arbitrage opportunities from RapidAPI:', error);
       return [];
     }
   }
 
-  private transformResponse(data: any): Game[] {
+  private async getCompetitions(): Promise<Competition[]> {
+    const url = `${this.baseUrl}/v0/competitions`;
+    console.log('Fetching competitions from:', url);
+    
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: this.headers,
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return data.competitions;
+  }
+
+  private async getEvents(competitionKey: string): Promise<Event[]> {
+    const url = `${this.baseUrl}/v0/competitions/${competitionKey}/events`;
+    console.log('Fetching events from:', url);
+    
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: this.headers,
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return data.events;
+  }
+
+  private async getEventsWithOdds(eventKeys: string[]): Promise<EventWithOdds[]> {
+    const queryParams = eventKeys.map(key => `eventKeys=${key}`).join('&');
+    const url = `${this.baseUrl}/v0/events?${queryParams}`;
+    console.log('Fetching odds from:', url);
+    
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: this.headers,
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return data.events;
+  }
+
+  private transformResponse(events: EventWithOdds[]): Game[] {
     try {
-      // Transform the RapidAPI response to match our Game type
-      return data.map((item: any) => ({
-        id: `rapid_${item.id}`,
-        sport_key: item.sport_key,
-        sport_title: item.sport_title,
-        commence_time: item.commence_time,
-        home_team: item.home_team,
-        away_team: item.away_team,
-        source: 'RapidAPI',
-        bookmakers: item.bookmakers.map((bookmaker: any) => ({
-          key: bookmaker.key,
-          title: bookmaker.title,
-          last_update: bookmaker.last_update,
-          markets: bookmaker.markets.map((market: any) => ({
-            key: market.key,
-            outcomes: market.outcomes.map((outcome: any) => ({
-              name: outcome.name,
-              price: outcome.price,
+      return events.map(event => {
+        // Find the moneyline market
+        const moneylineMarket = event.markets.find(market => 
+          market.type === 'MONEYLINE' && market.segment === 'FULL_MATCH'
+        );
+
+        if (!moneylineMarket) {
+          return null;
+        }
+
+        // Get all bookmakers from the outcomes
+        const bookmakers = Object.entries(moneylineMarket.outcomes).map(([source, outcomes]) => {
+          const market = {
+            key: moneylineMarket.key,
+            outcomes: outcomes.map(outcome => ({
+              name: outcome.participant.name,
+              price: outcome.payout,
             })),
-          })),
-        })),
-      }));
+          };
+
+          return {
+            key: source,
+            title: source,
+            last_update: outcome.lastFoundAt,
+            markets: [market],
+          };
+        });
+
+        return {
+          id: `rapid_${event.key}`,
+          sport_key: event.participants[0].sport,
+          sport_title: event.participants[0].sport,
+          commence_time: event.startTime,
+          home_team: event.participants.find(p => p.key === event.homeParticipantKey)?.name || '',
+          away_team: event.participants.find(p => p.key !== event.homeParticipantKey)?.name || '',
+          source: 'RapidAPI',
+          bookmakers,
+        };
+      }).filter((game): game is Game => game !== null);
     } catch (error) {
       console.error('Error transforming RapidAPI response:', error);
-      console.error('Raw data that caused error:', data);
       return [];
     }
   }
