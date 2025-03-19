@@ -43,6 +43,7 @@ const defaultSettings: ArbitrageSettings = {
   minReturnForNotification: 1.0,
   oddsApi: true,
   rapidApi: true,
+  selectedBookmakers: [],
 };
 
 export default function Home() {
@@ -62,7 +63,13 @@ export default function Home() {
       // Filter based on API selection
       const isOddsApi = opp.id.startsWith('odds-');
       const isRapidApi = opp.id.startsWith('rapid-');
-      return (isOddsApi && settings.oddsApi) || (isRapidApi && settings.rapidApi);
+      const apiFilter = (isOddsApi && settings.oddsApi) || (isRapidApi && settings.rapidApi);
+      
+      // Filter based on selected bookmakers
+      const bookmakerFilter = settings.selectedBookmakers.length === 0 || 
+        opp.bets.some(bet => settings.selectedBookmakers.includes(bet.bookmaker));
+      
+      return apiFilter && bookmakerFilter;
     })
     .map((opp, index) => ({
       id: `${opp.homeTeam}-${opp.awayTeam}-${index}`,

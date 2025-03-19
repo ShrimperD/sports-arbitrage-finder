@@ -36,6 +36,7 @@ export type ArbitrageSettings = {
   minReturnForNotification: number;
   oddsApi: boolean;
   rapidApi: boolean;
+  selectedBookmakers: string[];
 };
 
 type ArbitrageControlsProps = {
@@ -52,6 +53,13 @@ export function ArbitrageControls({ settings, onSettingsChange }: ArbitrageContr
       ...settings,
       [key]: value,
     });
+  };
+
+  const handleBookmakerChange = (bookmaker: string, checked: boolean) => {
+    const newBookmakers = checked
+      ? [...settings.selectedBookmakers, bookmaker]
+      : settings.selectedBookmakers.filter(b => b !== bookmaker);
+    handleChange('selectedBookmakers', newBookmakers);
   };
 
   return (
@@ -82,6 +90,24 @@ export function ArbitrageControls({ settings, onSettingsChange }: ArbitrageContr
             <label htmlFor="rapidApi" className="text-sm font-medium">
               RapidAPI
             </label>
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          <Label>Bookmakers</Label>
+          <div className="grid grid-cols-2 gap-2">
+            {['Bet365', 'William Hill', 'Betway', 'Unibet', 'Paddy Power', 'Ladbrokes'].map((bookmaker) => (
+              <div key={bookmaker} className="flex items-center space-x-2">
+                <Checkbox
+                  id={bookmaker}
+                  checked={settings.selectedBookmakers.includes(bookmaker)}
+                  onCheckedChange={(checked: boolean) => handleBookmakerChange(bookmaker, checked)}
+                />
+                <label htmlFor={bookmaker} className="text-sm font-medium">
+                  {bookmaker}
+                </label>
+              </div>
+            ))}
           </div>
         </div>
 
