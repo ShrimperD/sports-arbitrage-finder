@@ -124,45 +124,56 @@ export function useArbitrageOpportunities(sportKey?: string) {
   });
 
   const transformRapidApiOpportunity = (game: Game): ArbitrageOpportunity => {
-    // Extract unique bookmakers from the game
-    const bookmakers = game.bookmakers.map(bm => bm.title);
-    
-    // Transform the bets, ensuring we only include valid bookmakers
-    const bets = game.bookmakers.flatMap(bm => 
-      bm.markets.flatMap(market => 
-        market.outcomes.map(outcome => ({
-          team: outcome.name,
-          odds: outcome.price,
-          bookmaker: bm.title,
-          stake: 0, // Calculate stake based on odds
-          lastUpdated: new Date().toISOString()
-        }))
-      )
-    );
+    try {
+      // Extract unique bookmakers from the game
+      const bookmakers = game.bookmakers.map(bm => bm.title);
+      
+      // Transform the bets, ensuring we only include valid bookmakers
+      const bets = game.bookmakers.flatMap(bm => 
+        bm.markets.flatMap(market => 
+          market.outcomes.map(outcome => ({
+            team: outcome.name,
+            odds: outcome.price,
+            bookmaker: bm.title,
+            stake: 0, // Calculate stake based on odds
+            lastUpdated: new Date().toISOString() // Use current time since last_update is not available
+          }))
+        )
+      );
 
-    return {
-      id: `rapid_${game.id}`,
-      homeTeam: game.home_team,
-      awayTeam: game.away_team,
-      sport: game.sport_title,
-      commenceTime: game.commence_time,
-      return: 0, // Calculate return based on odds
-      source: 'RapidAPI' as const,
-      confidence: calculateConfidence({
-        id: game.id,
+      // Calculate return percentage based on odds
+      const returnPercentage = bets.reduce((acc, bet) => {
+        const decimalOdds = 1 / bet.odds;
+        return acc + decimalOdds;
+      }, 0) * 100;
+
+      return {
+        id: `rapid_${game.id}`,
         homeTeam: game.home_team,
         awayTeam: game.away_team,
         sport: game.sport_title,
         commenceTime: game.commence_time,
-        return: 0,
-        source: 'RapidAPI',
-        confidence: 'low',
+        return: returnPercentage,
+        source: 'RapidAPI' as const,
+        confidence: calculateConfidence({
+          id: game.id,
+          homeTeam: game.home_team,
+          awayTeam: game.away_team,
+          sport: game.sport_title,
+          commenceTime: game.commence_time,
+          return: returnPercentage,
+          source: 'RapidAPI',
+          confidence: 'low',
+          lastUpdated: new Date().toISOString(),
+          bets: []
+        }),
         lastUpdated: new Date().toISOString(),
-        bets: []
-      }),
-      lastUpdated: new Date().toISOString(),
-      bets
-    };
+        bets
+      };
+    } catch (error) {
+      console.error('Error transforming RapidAPI opportunity:', error);
+      throw error;
+    }
   };
 
   useEffect(() => {
@@ -215,8 +226,20 @@ export function useArbitrageOpportunities(sportKey?: string) {
         try {
           console.log('Fetching from RapidAPI...');
           const rapidData = await rapidApi.getArbitrageOpportunities();
-          rapidApiOpportunities = rapidData.map(game => transformRapidApiOpportunity(game));
-          console.log('RapidAPI Opportunities:', rapidApiOpportunities);
+          console.log('Raw RapidAPI data:', rapidData);
+          
+          rapidApiOpportunities = rapidData
+            .map(game => {
+              try {
+                return transformRapidApiOpportunity(game);
+              } catch (transformErr) {
+                console.error('Error transforming RapidAPI game:', transformErr);
+                return null;
+              }
+            })
+            .filter((opp): opp is ArbitrageOpportunity => opp !== null);
+            
+          console.log('Transformed RapidAPI Opportunities:', rapidApiOpportunities);
           
           if (isMounted) {
             setApiStatus(prev => ({

@@ -63,8 +63,8 @@ export class RapidApiOddsService {
   private readonly host: string;
 
   constructor() {
-    // In Next.js, we need to use NEXT_PUBLIC_ prefix for client-side environment variables
-    this.apiKey = process.env.NEXT_PUBLIC_RAPIDAPI_KEY || '';
+    // Use the provided API key directly since it's a client-side service
+    this.apiKey = '0c0404f737mshc8deeeb00fa4d74p160cf0jsnd8c7aaea1796';
     this.baseUrl = 'https://sportsbook-api2.p.rapidapi.com';
     this.host = 'sportsbook-api2.p.rapidapi.com';
 
@@ -74,23 +74,19 @@ export class RapidApiOddsService {
       baseUrl: this.baseUrl,
       host: this.host
     });
-
-    if (!this.apiKey) {
-      console.warn('RapidAPI key is not set. Please check your environment variables.');
-    }
   }
 
   private get headers() {
-    const headers = {
-      'x-rapidapi-key': this.apiKey,
-      'x-rapidapi-host': this.host,
+    return {
+      'X-RapidAPI-Key': this.apiKey,
+      'X-RapidAPI-Host': this.host,
     };
-    console.log('Request headers:', headers);
-    return headers;
   }
 
   async getArbitrageOpportunities(): Promise<Game[]> {
     try {
+      console.log('Starting RapidAPI fetch...');
+      
       // Step 1: Get all competitions
       const competitions = await this.getCompetitions();
       console.log('Found competitions:', competitions);
@@ -115,10 +111,12 @@ export class RapidApiOddsService {
       console.log('Found odds data:', oddsData);
 
       // Transform the data to match our Game type
-      return this.transformResponse(oddsData);
+      const transformedData = this.transformResponse(oddsData);
+      console.log('Transformed data:', transformedData);
+      return transformedData;
     } catch (error) {
       console.error('Error fetching arbitrage opportunities from RapidAPI:', error);
-      return [];
+      throw error; // Re-throw to handle in the hook
     }
   }
 
@@ -132,6 +130,12 @@ export class RapidApiOddsService {
     });
 
     if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Competitions API error:', {
+        status: response.status,
+        statusText: response.statusText,
+        body: errorText
+      });
       throw new Error(`HTTP error! status: ${response.status}`);
     }
 
@@ -149,6 +153,12 @@ export class RapidApiOddsService {
     });
 
     if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Events API error:', {
+        status: response.status,
+        statusText: response.statusText,
+        body: errorText
+      });
       throw new Error(`HTTP error! status: ${response.status}`);
     }
 
@@ -167,6 +177,12 @@ export class RapidApiOddsService {
     });
 
     if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Odds API error:', {
+        status: response.status,
+        statusText: response.statusText,
+        body: errorText
+      });
       throw new Error(`HTTP error! status: ${response.status}`);
     }
 
