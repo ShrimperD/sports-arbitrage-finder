@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useOdds, useArbitrageOpportunities } from '@/hooks/use-odds';
+import { useSports, useArbitrageOpportunities } from '@/hooks/use-odds';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -11,6 +11,8 @@ import { ArbitrageHistory, type HistoricalOpportunity } from '@/components/featu
 import { NotificationService } from '@/lib/services/notification';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { OpportunityCard } from '@/components/features/OpportunityCard';
+import { BettingTable } from '@/components/features/BettingTable';
+import { Checkbox } from '@/components/ui/checkbox';
 
 type Bet = {
   team: string;
@@ -46,7 +48,11 @@ export default function Home() {
   const [settings, setSettings] = useState<ArbitrageSettings>(defaultSettings);
   const [history, setHistory] = useState<HistoricalOpportunity[]>([]);
   const [betOpportunities, setBetOpportunities] = useState<Set<string>>(new Set());
-  const { sports, loading: sportsLoading } = useOdds();
+  const [apiSelections, setApiSelections] = useState({
+    oddsApi: true,
+    rapidApi: true,
+  });
+  const { sports, loading: sportsLoading } = useSports();
   const { opportunities, loading: oddsLoading } = useArbitrageOpportunities(selectedSport);
 
   const loading = sportsLoading || oddsLoading;
@@ -58,9 +64,9 @@ export default function Home() {
     homeTeam: opp.homeTeam,
     awayTeam: opp.awayTeam,
     sport: selectedSport || '',
-    commenceTime: new Date().toISOString(), // We don't have this from the API
-    return: opp.opportunity?.totalReturn || 0,
-    bets: opp.opportunity?.bets || [],
+    commenceTime: new Date().toISOString(),
+    return: opp.return,
+    bets: opp.bets,
     isBetPlaced: betOpportunities.has(`${opp.homeTeam}-${opp.awayTeam}-${index}`)
   }));
 
@@ -75,8 +81,8 @@ export default function Home() {
           return (a.return - b.return) * multiplier;
         case 'risk':
           return (
-            (Math.max(...a.bets.map(b => b.odds)) -
-              Math.max(...b.bets.map(b => b.odds))) *
+            (Math.max(...a.bets.map((bet: Bet) => bet.odds)) -
+              Math.max(...b.bets.map((bet: Bet) => bet.odds))) *
             multiplier
           );
         case 'time':
@@ -106,7 +112,7 @@ export default function Home() {
         o.homeTeam,
         o.awayTeam,
         o.return,
-        o.bets.map((b) => b.bookmaker)
+        o.bets.map((bet: Bet) => bet.bookmaker)
       );
 
       setHistory((prev) => [
@@ -115,7 +121,7 @@ export default function Home() {
           return: o.return,
           homeTeam: o.homeTeam,
           awayTeam: o.awayTeam,
-          bookmakers: o.bets.map((b) => b.bookmaker),
+          bookmakers: o.bets.map((bet: Bet) => bet.bookmaker),
           successful: true,
         },
         ...prev,
@@ -176,6 +182,33 @@ export default function Home() {
               settings={settings}
               onSettingsChange={setSettings}
             />
+
+            <div className="flex items-center space-x-4 mb-4">
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="oddsApi"
+                  checked={apiSelections.oddsApi}
+                  onCheckedChange={(checked: boolean) => 
+                    setApiSelections(prev => ({ ...prev, oddsApi: checked }))
+                  }
+                />
+                <label htmlFor="oddsApi" className="text-sm font-medium">
+                  Odds API
+                </label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="rapidApi"
+                  checked={apiSelections.rapidApi}
+                  onCheckedChange={(checked: boolean) => 
+                    setApiSelections(prev => ({ ...prev, rapidApi: checked }))
+                  }
+                />
+                <label htmlFor="rapidApi" className="text-sm font-medium">
+                  RapidAPI
+                </label>
+              </div>
+            </div>
           </div>
 
           <Tabs defaultValue="opportunities">
@@ -289,6 +322,11 @@ export default function Home() {
             </TabsContent>
           </Tabs>
         </div>
+      </div>
+
+      <div className="mt-8">
+        <h2 className="text-2xl font-bold mb-4">Betting Table</h2>
+        <BettingTable opportunities={Array.from(betOpportunities)} />
       </div>
     </div>
   );
