@@ -10,12 +10,26 @@ interface ArbitrageOpportunity {
   sport: string;
   commenceTime: string;
   return: number;
+  source: 'Odds API' | 'RapidAPI';
   bets: Array<{
     team: string;
     odds: number;
     bookmaker: string;
     stake: number;
   }>;
+}
+
+interface ApiStatus {
+  oddsApi: {
+    loading: boolean;
+    error: string | null;
+    lastUpdated: Date | null;
+  };
+  rapidApi: {
+    loading: boolean;
+    error: string | null;
+    lastUpdated: Date | null;
+  };
 }
 
 export function useSports() {
@@ -26,13 +40,15 @@ export function useSports() {
   useEffect(() => {
     const fetchSports = async () => {
       try {
+        console.log('Fetching sports from Odds API...');
         const oddsApi = new OddsApiService();
         const data = await oddsApi.getSports();
-        console.log('Sports from Odds API:', data);
+        console.log('Sports data received:', data);
         setSports(data);
       } catch (err) {
-        setError('Failed to fetch sports');
-        console.error('Error fetching sports:', err);
+        const errorMessage = err instanceof Error ? err.message : 'Failed to fetch sports';
+        console.error('Error fetching sports:', errorMessage);
+        setError(errorMessage);
       } finally {
         setLoading(false);
       }
@@ -48,8 +64,14 @@ export function useArbitrageOpportunities(sportKey?: string) {
   const [opportunities, setOpportunities] = useState<ArbitrageOpportunity[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [apiStatus, setApiStatus] = useState<ApiStatus>({
+    oddsApi: { loading: false, error: null, lastUpdated: null },
+    rapidApi: { loading: false, error: null, lastUpdated: null }
+  });
 
   useEffect(() => {
+    let isMounted = true;
+
     const fetchOpportunities = async () => {
       try {
         console.log('Starting to fetch opportunities...');
@@ -60,6 +82,7 @@ export function useArbitrageOpportunities(sportKey?: string) {
         let rapidApiOpportunities: ArbitrageOpportunity[] = [];
 
         // Fetch from Odds API
+        setApiStatus(prev => ({ ...prev, oddsApi: { ...prev.oddsApi, loading: true, error: null } }));
         try {
           console.log('Fetching from Odds API...');
           if (sportKey) {
@@ -71,15 +94,22 @@ export function useArbitrageOpportunities(sportKey?: string) {
               sport: sportKey,
               commenceTime: new Date().toISOString(),
               return: opp.opportunity?.totalReturn || 0,
+              source: 'Odds API' as const,
               bets: opp.opportunity?.bets || []
             }));
             console.log('Odds API Opportunities:', oddsApiOpportunities);
           }
         } catch (oddsErr) {
-          console.error('Error fetching from Odds API:', oddsErr);
+          const errorMessage = oddsErr instanceof Error ? oddsErr.message : 'Failed to fetch from Odds API';
+          console.error('Error fetching from Odds API:', errorMessage);
+          setApiStatus(prev => ({
+            ...prev,
+            oddsApi: { ...prev.oddsApi, error: errorMessage, loading: false }
+          }));
         }
 
         // Fetch from RapidAPI
+        setApiStatus(prev => ({ ...prev, rapidApi: { ...prev.rapidApi, loading: true, error: null } }));
         try {
           console.log('Fetching from RapidAPI...');
           const rapidData = await rapidApi.getArbitrageOpportunities();
@@ -90,6 +120,7 @@ export function useArbitrageOpportunities(sportKey?: string) {
             sport: game.sport_title,
             commenceTime: game.commence_time,
             return: 0, // Calculate return based on odds
+            source: 'RapidAPI' as const,
             bets: game.bookmakers.flatMap(bm => 
               bm.markets.flatMap(market => 
                 market.outcomes.map(outcome => ({
@@ -103,7 +134,20 @@ export function useArbitrageOpportunities(sportKey?: string) {
           }));
           console.log('RapidAPI Opportunities:', rapidApiOpportunities);
         } catch (rapidErr) {
-          console.error('Error fetching from RapidAPI:', rapidErr);
+          const errorMessage = rapidErr instanceof Error ? rapidErr.message : 'Failed to fetch from RapidAPI';
+          console.error('Error fetching from RapidAPI:', errorMessage);
+          setApiStatus(prev => ({
+            ...prev,
+            rapidApi: { ...prev.rapidApi, error: errorMessage, loading: false }
+          }));
+        }
+
+        // Update API status
+        if (isMounted) {
+          setApiStatus(prev => ({
+            oddsApi: { ...prev.oddsApi, loading: false, lastUpdated: new Date() },
+            rapidApi: { ...prev.rapidApi, loading: false, lastUpdated: new Date() }
+          }));
         }
 
         // Combine and deduplicate opportunities
@@ -114,20 +158,40 @@ export function useArbitrageOpportunities(sportKey?: string) {
           index === self.findIndex((o) => o.id === opp.id)
         );
 
-        console.log('Final deduplicated opportunities:', uniqueOpportunities);
-        setOpportunities(uniqueOpportunities);
+        // Sort opportunities by return percentage (highest first)
+        const sortedOpportunities = uniqueOpportunities.sort((a, b) => b.return - a.return);
+
+        console.log('Final sorted opportunities:', sortedOpportunities);
+        
+        if (isMounted) {
+          setOpportunities(sortedOpportunities);
+        }
       } catch (err) {
-        console.error('Error in fetchOpportunities:', err);
-        setError('Failed to fetch arbitrage opportunities');
+        const errorMessage = err instanceof Error ? err.message : 'Failed to fetch arbitrage opportunities';
+        console.error('Error in fetchOpportunities:', errorMessage);
+        if (isMounted) {
+          setError(errorMessage);
+        }
       } finally {
-        setLoading(false);
+        if (isMounted) {
+          setLoading(false);
+        }
       }
     };
 
     fetchOpportunities();
     const interval = setInterval(fetchOpportunities, 60000); // Refresh every minute
-    return () => clearInterval(interval);
+
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
   }, [sportKey]);
 
-  return { opportunities, loading, error };
+  return { 
+    opportunities, 
+    loading, 
+    error,
+    apiStatus
+  };
 } 
