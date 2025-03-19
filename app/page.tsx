@@ -59,16 +59,23 @@ export default function Home() {
   const notificationService = NotificationService.getInstance();
 
   // Transform API opportunities into our format
-  const transformedOpportunities = opportunities.map((opp, index) => ({
-    id: `${opp.homeTeam}-${opp.awayTeam}-${index}`,
-    homeTeam: opp.homeTeam,
-    awayTeam: opp.awayTeam,
-    sport: selectedSport || '',
-    commenceTime: new Date().toISOString(),
-    return: opp.return,
-    bets: opp.bets,
-    isBetPlaced: betOpportunities.has(`${opp.homeTeam}-${opp.awayTeam}-${index}`)
-  }));
+  const transformedOpportunities = opportunities
+    .filter(opp => {
+      // Filter based on API selection
+      const isOddsApi = opp.id.startsWith('odds-');
+      const isRapidApi = opp.id.startsWith('rapid-');
+      return (isOddsApi && apiSelections.oddsApi) || (isRapidApi && apiSelections.rapidApi);
+    })
+    .map((opp, index) => ({
+      id: `${opp.homeTeam}-${opp.awayTeam}-${index}`,
+      homeTeam: opp.homeTeam,
+      awayTeam: opp.awayTeam,
+      sport: selectedSport || '',
+      commenceTime: new Date().toISOString(),
+      return: opp.return,
+      bets: opp.bets,
+      isBetPlaced: betOpportunities.has(`${opp.homeTeam}-${opp.awayTeam}-${index}`)
+    }));
 
   // Apply filters and sorting
   const filteredOpportunities = transformedOpportunities
