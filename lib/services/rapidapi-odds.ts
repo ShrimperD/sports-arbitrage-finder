@@ -8,8 +8,8 @@ export class RapidApiOddsService {
   constructor() {
     // In Next.js, we need to use NEXT_PUBLIC_ prefix for client-side environment variables
     this.apiKey = process.env.NEXT_PUBLIC_RAPIDAPI_KEY || '';
-    this.baseUrl = 'https://sportsbook-api2.p.rapidapi.com';
-    this.host = 'sportsbook-api2.p.rapidapi.com';
+    this.baseUrl = 'https://odds.p.rapidapi.com/v4';
+    this.host = 'odds.p.rapidapi.com';
 
     if (!this.apiKey) {
       console.warn('RapidAPI key is not set. Please check your environment variables.');
@@ -18,15 +18,15 @@ export class RapidApiOddsService {
 
   private get headers() {
     return {
-      'x-rapidapi-key': this.apiKey,
-      'x-rapidapi-host': this.host,
+      'X-RapidAPI-Key': this.apiKey,
+      'X-RapidAPI-Host': this.host,
     };
   }
 
   async getArbitrageOpportunities(): Promise<Game[]> {
     try {
       console.log('Fetching arbitrage opportunities from RapidAPI...');
-      const response = await fetch(`${this.baseUrl}/v0/advantages/?type=ARBITRAGE`, {
+      const response = await fetch(`${this.baseUrl}/sports/upcoming/odds/?regions=us&markets=h2h,spreads&oddsFormat=decimal`, {
         headers: this.headers,
       });
 
@@ -66,6 +66,7 @@ export class RapidApiOddsService {
         bookmakers: item.bookmakers.map((bookmaker: any) => ({
           key: bookmaker.key,
           title: bookmaker.title,
+          last_update: bookmaker.last_update,
           markets: bookmaker.markets.map((market: any) => ({
             key: market.key,
             outcomes: market.outcomes.map((outcome: any) => ({
