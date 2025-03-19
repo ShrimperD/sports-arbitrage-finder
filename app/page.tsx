@@ -155,32 +155,6 @@ export default function Home() {
         <p className="text-muted-foreground">
           Track and analyze real-time betting opportunities across multiple bookmakers.
         </p>
-        <div className="flex items-center space-x-6 mt-4">
-          <div className="flex items-center space-x-2">
-            <Checkbox
-              id="oddsApi"
-              checked={apiSelections.oddsApi}
-              onCheckedChange={(checked: boolean) => 
-                setApiSelections(prev => ({ ...prev, oddsApi: checked }))
-              }
-            />
-            <label htmlFor="oddsApi" className="text-sm font-medium">
-              Odds API
-            </label>
-          </div>
-          <div className="flex items-center space-x-2">
-            <Checkbox
-              id="rapidApi"
-              checked={apiSelections.rapidApi}
-              onCheckedChange={(checked: boolean) => 
-                setApiSelections(prev => ({ ...prev, rapidApi: checked }))
-              }
-            />
-            <label htmlFor="rapidApi" className="text-sm font-medium">
-              RapidAPI
-            </label>
-          </div>
-        </div>
       </div>
 
       <div className="flex gap-4 flex-col">
@@ -215,6 +189,39 @@ export default function Home() {
               settings={settings}
               onSettingsChange={setSettings}
             />
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Data Sources</CardTitle>
+                <CardDescription>Select which APIs to fetch data from</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="oddsApi"
+                    checked={apiSelections.oddsApi}
+                    onCheckedChange={(checked: boolean) => 
+                      setApiSelections(prev => ({ ...prev, oddsApi: checked }))
+                    }
+                  />
+                  <label htmlFor="oddsApi" className="text-sm font-medium">
+                    Odds API
+                  </label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="rapidApi"
+                    checked={apiSelections.rapidApi}
+                    onCheckedChange={(checked: boolean) => 
+                      setApiSelections(prev => ({ ...prev, rapidApi: checked }))
+                    }
+                  />
+                  <label htmlFor="rapidApi" className="text-sm font-medium">
+                    RapidAPI
+                  </label>
+                </div>
+              </CardContent>
+            </Card>
           </div>
 
           <Tabs defaultValue="opportunities">
