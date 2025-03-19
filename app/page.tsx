@@ -10,6 +10,7 @@ import { ArbitrageControls, type ArbitrageSettings } from '@/components/features
 import { ArbitrageHistory, type HistoricalOpportunity } from '@/components/features/ArbitrageHistory';
 import { NotificationService } from '@/lib/services/notification';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { OpportunityCard } from '@/components/features/OpportunityCard';
 
 type Bet = {
   team: string;
@@ -19,12 +20,14 @@ type Bet = {
 };
 
 type Opportunity = {
+  id: string;
   homeTeam: string;
   awayTeam: string;
-  opportunity: {
-    totalReturn: number;
-    bets: Array<Bet>;
-  } | null;
+  sport: string;
+  commenceTime: string;
+  return: number;
+  bets: Array<Bet>;
+  isBetPlaced?: boolean;
 };
 
 const defaultSettings: ArbitrageSettings = {
@@ -39,37 +42,45 @@ const defaultSettings: ArbitrageSettings = {
 };
 
 export default function Home() {
-  const [selectedSport, setSelectedSport] = useState<string>();
+  const [selectedSport, setSelectedSport] = useState<string>('');
   const [settings, setSettings] = useState<ArbitrageSettings>(defaultSettings);
   const [history, setHistory] = useState<HistoricalOpportunity[]>([]);
+  const [betOpportunities, setBetOpportunities] = useState<Set<string>>(new Set());
   const { sports, loading: sportsLoading } = useOdds();
   const { opportunities, loading: oddsLoading } = useArbitrageOpportunities(selectedSport);
 
   const loading = sportsLoading || oddsLoading;
   const notificationService = NotificationService.getInstance();
 
+  // Transform API opportunities into our format
+  const transformedOpportunities = opportunities.map((opp, index) => ({
+    id: `${opp.homeTeam}-${opp.awayTeam}-${index}`,
+    homeTeam: opp.homeTeam,
+    awayTeam: opp.awayTeam,
+    sport: selectedSport || '',
+    commenceTime: new Date().toISOString(), // We don't have this from the API
+    return: opp.opportunity?.totalReturn || 0,
+    bets: opp.opportunity?.bets || [],
+    isBetPlaced: betOpportunities.has(`${opp.homeTeam}-${opp.awayTeam}-${index}`)
+  }));
+
   // Apply filters and sorting
-  const filteredOpportunities = opportunities
-    .filter((o: Opportunity) => {
-      if (!o.opportunity) return false;
-      return o.opportunity.totalReturn >= settings.minReturn;
-    })
-    .sort((a: Opportunity, b: Opportunity) => {
-      if (!a.opportunity || !b.opportunity) return 0;
+  const filteredOpportunities = transformedOpportunities
+    .filter((o) => o.return >= settings.minReturn)
+    .sort((a, b) => {
       const multiplier = settings.sortOrder === 'desc' ? -1 : 1;
       
       switch (settings.sortBy) {
         case 'return':
-          return (a.opportunity.totalReturn - b.opportunity.totalReturn) * multiplier;
+          return (a.return - b.return) * multiplier;
         case 'risk':
           return (
-            (Math.max(...a.opportunity.bets.map(b => b.odds)) -
-              Math.max(...b.opportunity.bets.map(b => b.odds))) *
+            (Math.max(...a.bets.map(b => b.odds)) -
+              Math.max(...b.bets.map(b => b.odds))) *
             multiplier
           );
         case 'time':
-          // This would need the event time from the API
-          return 0;
+          return new Date(a.commenceTime).getTime() - new Date(b.commenceTime).getTime() * multiplier;
         default:
           return 0;
       }
@@ -80,38 +91,49 @@ export default function Home() {
     if (!settings.notificationsEnabled) return;
 
     const newOpportunities = filteredOpportunities.filter(
-      (o: Opportunity) =>
-        o.opportunity &&
-        o.opportunity.totalReturn >= settings.minReturnForNotification &&
+      (o) =>
+        o.return >= settings.minReturnForNotification &&
         !history.some(
           (h) =>
             h.homeTeam === o.homeTeam &&
             h.awayTeam === o.awayTeam &&
-            Math.abs(h.return - o.opportunity!.totalReturn) < 0.1
+            Math.abs(h.return - o.return) < 0.1
         )
     );
 
-    newOpportunities.forEach((o: Opportunity) => {
+    newOpportunities.forEach((o) => {
       notificationService.notifyArbitrageOpportunity(
         o.homeTeam,
         o.awayTeam,
-        o.opportunity!.totalReturn,
-        o.opportunity!.bets.map((b) => b.bookmaker)
+        o.return,
+        o.bets.map((b) => b.bookmaker)
       );
 
       setHistory((prev) => [
         {
           timestamp: new Date().toISOString(),
-          return: o.opportunity!.totalReturn,
+          return: o.return,
           homeTeam: o.homeTeam,
           awayTeam: o.awayTeam,
-          bookmakers: o.opportunity!.bets.map((b) => b.bookmaker),
+          bookmakers: o.bets.map((b) => b.bookmaker),
           successful: true,
         },
         ...prev,
       ]);
     });
   }, [filteredOpportunities, settings.notificationsEnabled, settings.minReturnForNotification]);
+
+  const handleBetPlaced = (id: string) => {
+    setBetOpportunities(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(id)) {
+        newSet.delete(id);
+      } else {
+        newSet.add(id);
+      }
+      return newSet;
+    });
+  };
 
   return (
     <div className="space-y-6">
@@ -189,7 +211,7 @@ export default function Home() {
                         {filteredOpportunities
                           .reduce(
                             (max, curr) =>
-                              Math.max(max, curr.opportunity?.totalReturn || 0),
+                              Math.max(max, curr.return),
                             0
                           )
                           .toFixed(2)}
@@ -208,7 +230,7 @@ export default function Home() {
                       <div className="text-2xl font-bold text-green-500">
                         {(
                           filteredOpportunities.reduce(
-                            (sum, curr) => sum + (curr.opportunity?.totalReturn || 0),
+                            (sum, curr) => sum + curr.return,
                             0
                           ) / filteredOpportunities.length || 0
                         ).toFixed(2)}
@@ -229,10 +251,7 @@ export default function Home() {
                         {filteredOpportunities
                           .reduce(
                             (sum, curr) =>
-                              sum +
-                              (curr.opportunity
-                                ? (curr.opportunity.totalReturn * settings.maxStake) / 100
-                                : 0),
+                              sum + (curr.return * settings.maxStake) / 100,
                             0
                           )
                           .toFixed(2)}
@@ -250,50 +269,14 @@ export default function Home() {
                   </CardHeader>
                   <CardContent>
                     <ScrollArea className="h-[600px]">
-                      <div className="space-y-4">
-                        {filteredOpportunities.map((opp: Opportunity, idx: number) => (
-                          <Card key={idx}>
-                            <CardHeader>
-                              <CardTitle className="text-lg">
-                                {opp.homeTeam} vs {opp.awayTeam}
-                              </CardTitle>
-                              <CardDescription>
-                                Expected Return:{' '}
-                                {((opp.opportunity?.totalReturn || 0) - 1000).toFixed(2)}
-                              </CardDescription>
-                            </CardHeader>
-                            <CardContent>
-                              <div className="space-y-2">
-                                {opp.opportunity?.bets.map((bet: Bet, betIdx: number) => (
-                                  <div
-                                    key={betIdx}
-                                    className="flex justify-between items-center"
-                                  >
-                                    <div>
-                                      <div className="font-medium">{bet.team}</div>
-                                      <div className="text-sm text-muted-foreground">
-                                        {bet.bookmaker}
-                                      </div>
-                                    </div>
-                                    <div className="text-right">
-                                      <div className="font-medium">
-                                        Stake: ${bet.stake.toFixed(2)}
-                                      </div>
-                                      <div className="text-sm text-muted-foreground">
-                                        Odds: {bet.odds}
-                                      </div>
-                                    </div>
-                                  </div>
-                                ))}
-                              </div>
-                            </CardContent>
-                          </Card>
+                      <div className="grid gap-4">
+                        {filteredOpportunities.map((opportunity) => (
+                          <OpportunityCard
+                            key={opportunity.id}
+                            opportunity={opportunity}
+                            onBetPlaced={handleBetPlaced}
+                          />
                         ))}
-                        {filteredOpportunities.length === 0 && (
-                          <div className="text-center py-8 text-muted-foreground">
-                            No arbitrage opportunities found for the selected sport.
-                          </div>
-                        )}
                       </div>
                     </ScrollArea>
                   </CardContent>

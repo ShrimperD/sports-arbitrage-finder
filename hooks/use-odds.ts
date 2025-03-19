@@ -1,88 +1,76 @@
 import { useState, useEffect } from 'react';
-import { OddsApiService, Sport, Game } from '@/lib/services/odds-api';
+import { OddsApiService } from '@/lib/services/odds-api';
+import { RapidApiOddsService } from '@/lib/services/rapidapi-odds';
+import { Sport, Game } from '@/types/odds';
 
-const oddsApi = new OddsApiService();
-
-export function useOdds(sportKey?: string) {
+export function useSports() {
   const [sports, setSports] = useState<Sport[]>([]);
-  const [games, setGames] = useState<Game[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Fetch available sports
   useEffect(() => {
-    async function fetchSports() {
+    const fetchSports = async () => {
       try {
-        setLoading(true);
+        const oddsApi = new OddsApiService();
         const data = await oddsApi.getSports();
+        console.log('Sports from Odds API:', data);
         setSports(data);
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to fetch sports');
+        setError('Failed to fetch sports');
+        console.error('Error fetching sports:', err);
       } finally {
         setLoading(false);
       }
-    }
+    };
 
     fetchSports();
   }, []);
 
-  // Fetch odds for selected sport
-  useEffect(() => {
-    async function fetchOdds() {
-      if (!sportKey) return;
-
-      try {
-        setLoading(true);
-        const data = await oddsApi.getOdds(sportKey);
-        setGames(data);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to fetch odds');
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    fetchOdds();
-  }, [sportKey]);
-
-  return {
-    sports,
-    games,
-    loading,
-    error,
-  };
+  return { sports, loading, error };
 }
 
 export function useArbitrageOpportunities(sportKey?: string) {
-  const [opportunities, setOpportunities] = useState<ReturnType<typeof oddsApi.findArbitrageOpportunities> extends Promise<infer T> ? T : never>([]);
-  const [loading, setLoading] = useState(false);
+  const [opportunities, setOpportunities] = useState<Game[]>([]);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    async function fetchOpportunities() {
-      if (!sportKey) return;
-
+    const fetchOpportunities = async () => {
       try {
-        setLoading(true);
-        const data = await oddsApi.findArbitrageOpportunities(sportKey);
-        setOpportunities(data);
+        const oddsApi = new OddsApiService();
+        const rapidApi = new RapidApiOddsService();
+        
+        console.log('Fetching opportunities from both APIs...');
+        
+        // Fetch from both APIs
+        const [oddsApiOpportunities, rapidApiOpportunities] = await Promise.all([
+          sportKey ? oddsApi.findArbitrageOpportunities(sportKey) : Promise.resolve([]),
+          rapidApi.getArbitrageOpportunities()
+        ]);
+
+        console.log('Odds API Opportunities:', oddsApiOpportunities);
+        console.log('RapidAPI Opportunities:', rapidApiOpportunities);
+
+        // Combine and deduplicate opportunities
+        const combinedOpportunities = [...oddsApiOpportunities, ...rapidApiOpportunities];
+        const uniqueOpportunities = combinedOpportunities.filter((game, index, self) =>
+          index === self.findIndex((g) => g.id === game.id)
+        );
+
+        console.log('Combined and deduplicated opportunities:', uniqueOpportunities);
+        setOpportunities(uniqueOpportunities);
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to fetch arbitrage opportunities');
+        setError('Failed to fetch arbitrage opportunities');
+        console.error('Error fetching opportunities:', err);
       } finally {
         setLoading(false);
       }
-    }
+    };
 
     fetchOpportunities();
-
-    // Set up polling every minute
-    const interval = setInterval(fetchOpportunities, 60000);
+    const interval = setInterval(fetchOpportunities, 60000); // Refresh every minute
     return () => clearInterval(interval);
   }, [sportKey]);
 
-  return {
-    opportunities,
-    loading,
-    error,
-  };
+  return { opportunities, loading, error };
 } 
