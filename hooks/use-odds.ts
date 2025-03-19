@@ -27,13 +27,11 @@ interface ApiStatus {
     loading: boolean;
     error: string | null;
     lastUpdated: Date | null;
-    retryCount: number;
   };
   rapidApi: {
     loading: boolean;
     error: string | null;
     lastUpdated: Date | null;
-    retryCount: number;
   };
 }
 
@@ -81,13 +79,13 @@ export function useSports() {
   return { sports, loading, error, retryCount };
 }
 
-export function useArbitrageOpportunities(sportKey?: string) {
+export function useArbitrageOpportunities() {
   const [opportunities, setOpportunities] = useState<ArbitrageOpportunity[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [apiStatus, setApiStatus] = useState<ApiStatus>({
-    oddsApi: { loading: false, error: null, lastUpdated: null, retryCount: 0 },
-    rapidApi: { loading: false, error: null, lastUpdated: null, retryCount: 0 }
+    oddsApi: { loading: false, error: null, lastUpdated: null },
+    rapidApi: { loading: false, error: null, lastUpdated: null }
   });
 
   const calculateConfidence = (opportunity: ArbitrageOpportunity): 'high' | 'medium' | 'low' => {
@@ -176,142 +174,130 @@ export function useArbitrageOpportunities(sportKey?: string) {
     }
   };
 
-  useEffect(() => {
-    let isMounted = true;
+  const fetchOpportunities = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    const isMounted = { current: true };
 
-    const fetchOpportunities = async () => {
+    try {
+      console.log('Starting to fetch opportunities...');
+      const oddsApi = new OddsApiService();
+      const rapidApi = new RapidApiOddsService();
+      
+      let oddsApiOpportunities: ArbitrageOpportunity[] = [];
+      let rapidApiOpportunities: ArbitrageOpportunity[] = [];
+
+      // Fetch from Odds API
       try {
-        console.log('Starting to fetch opportunities...');
-        const oddsApi = new OddsApiService();
-        const rapidApi = new RapidApiOddsService();
+        console.log('Fetching from Odds API...');
+        const oddsData = await oddsApi.findArbitrageOpportunities('basketball_nba');
+        oddsApiOpportunities = oddsData.map(opp => transformOddsApiOpportunity(opp, 'basketball_nba'));
+        console.log('Odds API Opportunities:', oddsApiOpportunities);
         
-        let oddsApiOpportunities: ArbitrageOpportunity[] = [];
-        let rapidApiOpportunities: ArbitrageOpportunity[] = [];
-
-        // Fetch from Odds API
-        setApiStatus(prev => ({ ...prev, oddsApi: { ...prev.oddsApi, loading: true, error: null } }));
-        try {
-          console.log('Fetching from Odds API...');
-          if (sportKey) {
-            const oddsData = await oddsApi.findArbitrageOpportunities(sportKey);
-            oddsApiOpportunities = oddsData.map(opp => transformOddsApiOpportunity(opp, sportKey));
-            console.log('Odds API Opportunities:', oddsApiOpportunities);
-            
-            if (isMounted) {
-              setApiStatus(prev => ({
-                ...prev,
-                oddsApi: { ...prev.oddsApi, loading: false, lastUpdated: new Date(), retryCount: 0 }
-              }));
-            }
-          }
-        } catch (oddsErr) {
-          const errorMessage = oddsErr instanceof Error ? oddsErr.message : 'Failed to fetch from Odds API';
-          console.error('Error fetching from Odds API:', errorMessage);
-          
-          if (isMounted) {
-            setApiStatus(prev => ({
-              ...prev,
-              oddsApi: {
-                ...prev.oddsApi,
-                error: errorMessage,
-                loading: false,
-                retryCount: prev.oddsApi.retryCount + 1
-              }
-            }));
-          }
+        if (isMounted.current) {
+          setApiStatus(prev => ({
+            ...prev,
+            oddsApi: { ...prev.oddsApi, loading: false, lastUpdated: new Date() }
+          }));
         }
-
-        // Fetch from RapidAPI
-        setApiStatus(prev => ({ ...prev, rapidApi: { ...prev.rapidApi, loading: true, error: null } }));
-        try {
-          console.log('Fetching from RapidAPI...');
-          const rapidData = await rapidApi.getArbitrageOpportunities();
-          console.log('Raw RapidAPI data:', rapidData);
-          
-          rapidApiOpportunities = rapidData
-            .map(game => {
-              try {
-                return transformRapidApiOpportunity(game);
-              } catch (transformErr) {
-                console.error('Error transforming RapidAPI game:', transformErr);
-                return null;
-              }
-            })
-            .filter((opp): opp is ArbitrageOpportunity => opp !== null);
-            
-          console.log('Transformed RapidAPI Opportunities:', rapidApiOpportunities);
-          
-          if (isMounted) {
-            setApiStatus(prev => ({
-              ...prev,
-              rapidApi: { ...prev.rapidApi, loading: false, lastUpdated: new Date(), retryCount: 0 }
-            }));
-          }
-        } catch (rapidErr) {
-          const errorMessage = rapidErr instanceof Error ? rapidErr.message : 'Failed to fetch from RapidAPI';
-          console.error('Error fetching from RapidAPI:', errorMessage);
-          
-          if (isMounted) {
-            setApiStatus(prev => ({
-              ...prev,
-              rapidApi: {
-                ...prev.rapidApi,
-                error: errorMessage,
-                loading: false,
-                retryCount: prev.rapidApi.retryCount + 1
-              }
-            }));
-          }
-        }
-
-        // Combine and deduplicate opportunities
-        const combinedOpportunities = [...oddsApiOpportunities, ...rapidApiOpportunities];
-        console.log('Combined opportunities before deduplication:', combinedOpportunities);
-
-        const uniqueOpportunities = combinedOpportunities.filter((opp, index, self) =>
-          index === self.findIndex((o) => o.id === opp.id)
-        );
-
-        // Sort opportunities by return percentage (highest first) and confidence
-        const sortedOpportunities = uniqueOpportunities.sort((a, b) => {
-          if (a.confidence !== b.confidence) {
-            const confidenceOrder = { high: 3, medium: 2, low: 1 };
-            return confidenceOrder[b.confidence] - confidenceOrder[a.confidence];
-          }
-          return b.return - a.return;
-        });
-
-        console.log('Final sorted opportunities:', sortedOpportunities);
+      } catch (oddsErr) {
+        const errorMessage = oddsErr instanceof Error ? oddsErr.message : 'Failed to fetch from Odds API';
+        console.error('Error fetching from Odds API:', errorMessage);
         
-        if (isMounted) {
-          setOpportunities(sortedOpportunities);
-        }
-      } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : 'Failed to fetch arbitrage opportunities';
-        console.error('Error in fetchOpportunities:', errorMessage);
-        if (isMounted) {
-          setError(errorMessage);
-        }
-      } finally {
-        if (isMounted) {
-          setLoading(false);
+        if (isMounted.current) {
+          setApiStatus(prev => ({
+            ...prev,
+            oddsApi: { ...prev.oddsApi, loading: false, error: errorMessage }
+          }));
         }
       }
-    };
 
-    fetchOpportunities();
-    const interval = setInterval(fetchOpportunities, 60000); // Refresh every minute
+      // Fetch from RapidAPI
+      setApiStatus(prev => ({ ...prev, rapidApi: { ...prev.rapidApi, loading: true, error: null } }));
+      try {
+        console.log('Fetching from RapidAPI...');
+        const rapidData = await rapidApi.getArbitrageOpportunities();
+        console.log('Raw RapidAPI data:', rapidData);
+        
+        rapidApiOpportunities = rapidData
+          .map(game => {
+            try {
+              return transformRapidApiOpportunity(game);
+            } catch (transformErr) {
+              console.error('Error transforming RapidAPI game:', transformErr);
+              return null;
+            }
+          })
+          .filter((opp): opp is ArbitrageOpportunity => opp !== null);
+        
+        console.log('Transformed RapidAPI Opportunities:', rapidApiOpportunities);
+        
+        if (isMounted.current) {
+          setApiStatus(prev => ({
+            ...prev,
+            rapidApi: { ...prev.rapidApi, loading: false, lastUpdated: new Date() }
+          }));
+        }
+      } catch (rapidErr) {
+        const errorMessage = rapidErr instanceof Error ? rapidErr.message : 'Failed to fetch from RapidAPI';
+        console.error('Error fetching from RapidAPI:', errorMessage);
+        
+        if (isMounted.current) {
+          setApiStatus(prev => ({
+            ...prev,
+            rapidApi: { ...prev.rapidApi, loading: false, error: errorMessage }
+          }));
+        }
+      }
+
+      // Combine and deduplicate opportunities
+      const combinedOpportunities = [...oddsApiOpportunities, ...rapidApiOpportunities];
+      console.log('Combined opportunities before deduplication:', combinedOpportunities);
+
+      const uniqueOpportunities = combinedOpportunities.filter((opp, index, self) =>
+        index === self.findIndex((o) => o.id === opp.id)
+      );
+
+      // Sort opportunities by return percentage (highest first) and confidence
+      const sortedOpportunities = uniqueOpportunities.sort((a, b) => {
+        if (a.confidence !== b.confidence) {
+          const confidenceOrder = { high: 3, medium: 2, low: 1 };
+          return confidenceOrder[b.confidence] - confidenceOrder[a.confidence];
+        }
+        return b.return - a.return;
+      });
+
+      console.log('Final sorted opportunities:', sortedOpportunities);
+      
+      if (isMounted.current) {
+        setOpportunities(sortedOpportunities);
+        setLoading(false);
+      }
+    } catch (err) {
+      if (isMounted.current) {
+        setError(err instanceof Error ? err.message : 'Failed to fetch opportunities');
+        setLoading(false);
+      }
+    }
 
     return () => {
-      isMounted = false;
-      clearInterval(interval);
+      isMounted.current = false;
     };
-  }, [sportKey]);
+  }, []);
 
-  return { 
-    opportunities, 
-    loading, 
+  useEffect(() => {
+    const cleanup = fetchOpportunities();
+    return () => {
+      cleanup.then(cleanupFn => cleanupFn?.());
+    };
+  }, [fetchOpportunities]);
+
+  return {
+    opportunities,
+    loading,
     error,
-    apiStatus
+    apiStatus,
+    isLoading: loading,
+    refetch: fetchOpportunities
   };
 } 
